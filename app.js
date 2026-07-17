@@ -376,7 +376,7 @@ async function fetchOpenMeteo(location, signal) {
     daily: "weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,daylight_duration,uv_index_max,wind_speed_10m_max",
     timezone: "auto",
     past_days: "1",
-    forecast_days: "10"
+    forecast_days: "14"
   });
   const response = await fetch(url, { signal });
   if (!response.ok) throw new Error(`Forecast returned ${response.status}.`);
@@ -794,13 +794,12 @@ function forgetSettings() {
 }
 
 function defaultSettings() {
-  const region = String(navigator.language || "").toUpperCase();
-  const imperial = region.endsWith("-US");
+  // Metric and Celsius for everyone; visitors who want imperial can switch.
   return {
     language: "auto",
-    temperatureUnit: imperial ? "fahrenheit" : "celsius",
-    windUnit: imperial ? "mph" : "kmh",
-    precipitationUnit: imperial ? "inch" : "mm",
+    temperatureUnit: "celsius",
+    windUnit: "kmh",
+    precipitationUnit: "mm",
     savedLocations: [],
     lastLocation: DEFAULT_LOCATION,
     notifications: { enabled: false, locationName: null, briefingHour: null }

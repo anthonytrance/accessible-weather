@@ -133,17 +133,19 @@
           </div>
         </section>
 
-        <section id="air-section" class="section-card" aria-labelledby="air-heading" hidden>
-          <div class="section-heading-row">
+        <details id="air-section" class="section-card collapsible" hidden>
+          <summary>
             <h2 id="air-heading" data-i18n="air.heading">Air quality and pollen</h2>
-            <p class="data-age" data-i18n="air.note">Latest modelled values for this location.</p>
-          </div>
+          </summary>
+          <p class="data-age" data-i18n="air.note">Latest modelled values for this location.</p>
           <dl id="air-values" class="weather-values"></dl>
           <p class="source-note" data-i18n="air.pollenNote">Pollen values are grains per cubic metre and are available in Europe only.</p>
-        </section>
+        </details>
 
-        <section class="section-card" aria-labelledby="notif-heading">
-          <h2 id="notif-heading" data-i18n="notif.heading">Notifications</h2>
+        <details class="section-card collapsible">
+          <summary>
+            <h2 id="notif-heading" data-i18n="notif.heading">Notifications</h2>
+          </summary>
           <p class="source-note" data-i18n="notif.intro">Get a push notification shortly before rain starts, and an optional daily briefing. Alerts follow one chosen place.</p>
           <p id="notif-status" class="section-summary notif-status"></p>
           <div class="button-cluster">
@@ -154,10 +156,12 @@
             <label for="briefing-select" data-i18n="notif.briefingLabel">Daily briefing</label>
             <select id="briefing-select"></select>
           </div>
-        </section>
+        </details>
 
-        <section class="section-card compact-card" aria-labelledby="settings-heading">
-          <h2 id="settings-heading" data-i18n="settings.heading">Preferences and data</h2>
+        <details class="section-card compact-card collapsible">
+          <summary>
+            <h2 id="settings-heading" data-i18n="settings.heading">Preferences and data</h2>
+          </summary>
           <div class="preference-grid">
             <div class="preference-row">
               <label for="language-select" data-i18n="settings.language">Language</label>
@@ -189,10 +193,12 @@
           </div>
           <button id="forget-button" class="secondary-button" type="button" data-i18n="action.forget">Forget saved locations and preferences</button>
           <p class="privacy-note" data-i18n="privacy.note">Locations and preferences are stored only in this browser. When weather is requested, the selected coordinates are sent to the named weather providers. If notifications are enabled, the chosen alert location and language are stored on the notification server. There is no account and no profile.</p>
-        </section>
+        </details>
 
-        <section class="sources" aria-labelledby="sources-heading">
-          <h2 id="sources-heading" data-i18n="sources.heading">Sources</h2>
+        <details class="sources collapsible">
+          <summary>
+            <h2 id="sources-heading" data-i18n="sources.heading">Sources</h2>
+          </summary>
           <ul>
             <li><a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a><span data-i18n="sources.openMeteo">: weather forecast using automatically selected high-resolution models.</span></li>
             <li id="buienradar-credit" hidden><a href="https://www.buienradar.nl/" target="_blank" rel="noreferrer">Buienradar.nl</a><span data-i18n="sources.buienradar">: two-hour rain nowcast.</span></li>
@@ -200,7 +206,7 @@
             <li><a href="https://open-meteo.com/en/docs/air-quality-api" target="_blank" rel="noreferrer">Open-Meteo Air Quality</a><span data-i18n="sources.airQuality">: air quality and pollen (CAMS).</span></li>
             <li data-i18n="sources.geonames">Location search data by GeoNames through Open-Meteo.</li>
           </ul>
-        </section>
+        </details>
       </div>
     </main>
 

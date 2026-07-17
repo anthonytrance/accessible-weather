@@ -548,6 +548,28 @@ summary {
   max-width: 22rem;
 }
 
+.collapsible > summary {
+  min-height: 2.75rem;
+  cursor: pointer;
+}
+
+.collapsible > summary h2 {
+  display: inline;
+  margin: 0;
+  font-size: clamp(1.2rem, 3.5vw, 1.5rem);
+  color: inherit;
+}
+
+.collapsible[open] > summary {
+  margin-bottom: 1rem;
+}
+
+.sources.collapsible > summary {
+  padding: 0.25rem 0;
+  color: inherit;
+  font-weight: 800;
+}
+
 .privacy-note {
   max-width: 55rem;
   margin: 1rem 0 0;
@@ -603,6 +625,25 @@ summary {
 
   .forecast-point-list {
     grid-template-columns: 1fr;
+  }
+
+  main {
+    padding-block: 0.85rem 1.25rem;
+  }
+
+  .location-panel,
+  .section-card,
+  .hero-card {
+    margin-bottom: 0.7rem;
+    padding: 0.9rem;
+  }
+
+  .tagline {
+    display: none;
+  }
+
+  .weather-values {
+    gap: 0.5rem;
   }
 }
 

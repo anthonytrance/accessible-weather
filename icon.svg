@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Weather, clearly</title>
+  <rect width="512" height="512" rx="96" fill="#102a43"/>
+  <circle cx="190" cy="185" r="92" fill="#ffca3a"/>
+  <path d="M125 320c0-56 45-101 101-101 38 0 71 21 88 52 12-7 27-11 42-11 47 0 85 38 85 85s-38 85-85 85H137c-38 0-69-31-69-69 0-34 25-63 57-68v27z" fill="#e8f6fb"/>
+  <path d="M178 441l-22 43M266 441l-22 43M354 441l-22 43" stroke="#5dc0f0" stroke-width="24" stroke-linecap="round"/>
+</svg>

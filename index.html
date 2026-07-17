@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#102a43">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Weather">
+    <meta name="description" content="Accessible current weather and short-term rain forecasts for any location.">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="./icon.svg">
+    <link rel="stylesheet" href="./styles.css">
+    <title>Weather, clearly</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to weather</a>
+
+    <header class="site-header">
+      <div class="shell header-inner">
+        <div>
+          <p class="eyebrow">Accessible weather</p>
+          <h1>Weather, clearly</h1>
+          <p class="tagline">Precise conditions and rain timing, without relying on a map.</p>
+        </div>
+        <button id="refresh-button" class="secondary-button" type="button" disabled>Refresh weather</button>
+      </div>
+    </header>
+
+    <main id="main-content" class="shell" tabindex="-1">
+      <section class="location-panel" aria-labelledby="location-heading">
+        <h2 id="location-heading">Choose a location</h2>
+        <div class="location-actions">
+          <form id="search-form" role="search">
+            <label for="location-search">Town, postal code or place</label>
+            <div class="search-row">
+              <input id="location-search" name="location" type="search" autocomplete="off" enterkeyhint="search" minlength="2" required>
+              <button class="primary-button" type="submit">Search</button>
+            </div>
+          </form>
+          <div class="or-divider" aria-hidden="true">or</div>
+          <button id="gps-button" class="secondary-button" type="button">Use my current location</button>
+        </div>
+
+        <div id="search-results" class="search-results" hidden>
+          <h3 id="search-results-heading" tabindex="-1">Search results</h3>
+          <ul id="search-results-list" aria-labelledby="search-results-heading"></ul>
+        </div>
+
+        <div id="saved-locations" class="saved-locations" hidden>
+          <h3>Saved locations</h3>
+          <div id="saved-location-buttons" class="button-cluster"></div>
+        </div>
+      </section>
+
+      <p id="status" class="status" role="status" aria-live="polite" aria-atomic="true"></p>
+      <div id="error" class="error-message" role="alert" hidden></div>
+
+      <div id="weather-content" hidden aria-busy="false">
+        <section class="hero-card" aria-labelledby="weather-location-heading">
+          <div class="hero-heading-row">
+            <div>
+              <p id="location-context" class="eyebrow">Flanders, Belgium</p>
+              <h2 id="weather-location-heading" tabindex="-1">Mechelen</h2>
+            </div>
+            <button id="save-location-button" class="text-button" type="button">Save this location</button>
+          </div>
+          <p id="decision-summary" class="decision-summary"></p>
+          <p id="summary-caveat" class="summary-caveat"></p>
+        </section>
+
+        <section class="section-card" aria-labelledby="conditions-heading">
+          <div class="section-heading-row">
+            <h2 id="conditions-heading">Current conditions</h2>
+            <p id="weather-age" class="data-age"></p>
+          </div>
+
+          <div id="measured-observation" class="observation-block" hidden>
+            <h3>Nearest measured observation</h3>
+            <p id="station-description" class="source-note"></p>
+            <dl id="measured-values" class="weather-values"></dl>
+          </div>
+
+          <div class="observation-block">
+            <h3 id="model-heading">Local model estimate</h3>
+            <p class="source-note">This is calculated for the selected coordinates. It is not a thermometer reading.</p>
+            <dl id="current-values" class="weather-values"></dl>
+          </div>
+        </section>
+
+        <section class="section-card rain-section" aria-labelledby="rain-heading">
+          <div class="section-heading-row">
+            <h2 id="rain-heading">Rain, next two hours</h2>
+            <p id="rain-source-badge" class="source-badge"></p>
+          </div>
+          <p id="rain-summary" class="section-summary"></p>
+          <div id="rain-visual" class="rain-visual" aria-hidden="true"></div>
+          <details id="rain-details">
+            <summary>Detailed rain timeline</summary>
+            <p id="rain-detail-intro" class="source-note"></p>
+            <ol id="rain-timeline" class="timeline"></ol>
+          </details>
+        </section>
+
+        <section class="section-card" aria-labelledby="hourly-heading">
+          <h2 id="hourly-heading">Next 12 hours</h2>
+          <section class="table-scroll" tabindex="0" aria-label="Scrollable twelve-hour weather forecast">
+            <table>
+              <caption>Temperature, rain chance and wind by hour</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Time</th>
+                  <th scope="col">Conditions</th>
+                  <th scope="col">Temperature</th>
+                  <th scope="col">Rain chance</th>
+                  <th scope="col">Rain</th>
+                  <th scope="col">Wind</th>
+                </tr>
+              </thead>
+              <tbody id="hourly-body"></tbody>
+            </table>
+          </section>
+        </section>
+
+        <section class="section-card" aria-labelledby="daily-heading">
+          <h2 id="daily-heading">Five-day outlook</h2>
+          <div id="daily-list" class="daily-list"></div>
+        </section>
+
+        <section class="section-card compact-card" aria-labelledby="settings-heading">
+          <h2 id="settings-heading">Preferences and data</h2>
+          <div class="preference-row">
+            <label for="units-select">Units</label>
+            <select id="units-select">
+              <option value="metric">Celsius, kilometres per hour and millimetres</option>
+              <option value="imperial">Fahrenheit, miles per hour and inches</option>
+            </select>
+          </div>
+          <button id="forget-button" class="secondary-button" type="button">Forget saved locations and preferences</button>
+          <p class="privacy-note">Locations and preferences are stored only in this browser. When weather is requested, the selected coordinates are sent to the named weather providers. There is no account and no server-side profile.</p>
+        </section>
+
+        <section class="sources" aria-labelledby="sources-heading">
+          <h2 id="sources-heading">Sources</h2>
+          <ul>
+            <li><a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Weather forecast by Open-Meteo</a>, using automatically selected high-resolution models.</li>
+            <li id="buienradar-credit" hidden><a href="https://www.buienradar.nl/" target="_blank" rel="noreferrer">Two-hour rain data by Buienradar.nl</a>.</li>
+            <li id="kmi-credit" hidden><a href="https://www.meteo.be/" target="_blank" rel="noreferrer">Belgian observations by KMI/IRM</a>.</li>
+            <li>Location search data by GeoNames through Open-Meteo.</li>
+          </ul>
+        </section>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell">
+        <p>Weather can change quickly. Use official warnings for safety-critical decisions.</p>
+      </div>
+    </footer>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

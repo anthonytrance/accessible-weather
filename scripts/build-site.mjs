@@ -5,6 +5,8 @@ const files = [
   "styles.css",
   "app.js",
   "weather-utils.js",
+  "i18n.js",
+  "icons.js",
   "manifest.webmanifest",
   "icon.svg",
   "sw.js"

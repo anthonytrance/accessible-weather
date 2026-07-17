@@ -1,26 +1,28 @@
 # Weather, clearly
 
-A blind-first, installable weather website for precise current conditions and short-term rain timing. It is deployed as a static Cloudflare Worker at [accessible-weather.pitch-363.workers.dev](https://accessible-weather.pitch-363.workers.dev/), requires no account, and stores preferences only in the visitor's browser. GitHub Pages remains available as a fallback.
+A blind-first, installable weather website for precise current conditions and short-term rain timing. It is deployed as a static Cloudflare Worker at [accessible-weather.pitch-363.workers.dev](https://accessible-weather.pitch-363.workers.dev/), requires no account, and stores preferences only in the visitor's browser.
 
 ## What it does
 
-- Searches towns and postal codes worldwide.
+- Searches towns and postal codes worldwide, in the interface language.
 - Uses browser GPS only after the visitor presses the location button.
-- Leads with a short decision-oriented summary suitable for a screen reader.
-- Provides Buienradar five-minute rain nowcasts in its supported region.
-- Falls back to Open-Meteo 15-minute model precipitation elsewhere.
+- Leads with a short decision-oriented summary suitable for a screen reader, including how today compares to yesterday and today's sunrise, sunset and daylight length.
+- Speaks five languages (English, Dutch, French, German, Spanish), auto-detected with a manual override, covering every label, sentence, weather description, compass point and Beaufort name.
+- Shows temperatures with one decimal everywhere, with locale-aware number formatting.
+- Offers independent unit preferences: Celsius or Fahrenheit, wind in km/h, mph, m/s or Beaufort, precipitation in millimetres or inches.
+- Provides Buienradar five-minute rain nowcasts in its supported region, falling back to Open-Meteo 15-minute model precipitation elsewhere.
 - Shows preliminary KMI/IRM station observations in Belgium, including the station distance and observation age.
-- Exposes detailed rain values as text, while keeping them collapsed until requested.
-- Supports metric and imperial display units.
-- Can be installed as a progressive web app.
+- Displays UV index, dew point, air quality (European AQI, particulates, ozone, NO2) and pollen for Europe.
+- Sends web push notifications: a rain alert shortly before rain starts at a chosen place, and an optional daily briefing at a chosen hour, in the chosen language and units.
+- Has a share button, decorative weather icons that never replace spoken text, and can be installed as a progressive web app.
 
 ## Data architecture
 
-The browser calls Open-Meteo and Buienradar directly. KMI's GeoServer does not currently send a browser CORS header, so the Cloudflare Worker reads its public WFS observation layers every ten minutes through a Cron Trigger. It stores the latest converted snapshot in Workers KV and serves it from `/api/kmi` on the same origin as the website.
+The browser calls Open-Meteo (forecast, geocoding, air quality) and Buienradar directly. KMI's GeoServer does not currently send a browser CORS header, so the Cloudflare Worker reads its public WFS observation layers every ten minutes through a Cron Trigger, stores the snapshot in Workers KV and serves it from `/api/kmi`.
 
-The checked-in KMI JSON remains an emergency fallback and can be refreshed manually from GitHub Actions or a local checkout. GitHub is source control and a static hosting fallback, but it is not part of the live Cloudflare weather-update path.
+Push notifications also live in the Worker. Subscriptions are stored in the same KV namespace (`push:{id}` where the id is the SHA-256 of the push endpoint). The cron job checks each subscription's location: Buienradar nowcast in coverage, Open-Meteo minutely model elsewhere, and queues a localized message under `pushmsg:{id}` before sending a payload-free, VAPID-signed push "tickle". The service worker then fetches `/api/push/pending` and shows the notification, which avoids Web Push payload encryption entirely. VAPID keys are Worker secrets (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY_JWK`).
 
-Open-Meteo's “current” conditions are model values, not station measurements. The interface labels that distinction explicitly.
+Open-Meteo's "current" conditions are model values, not station measurements. The interface labels that distinction explicitly.
 
 ## Local use
 
@@ -44,15 +46,17 @@ Refresh the checked-in KMI data with:
 npm run update-kmi
 ```
 
-Build and deploy the static site to Cloudflare with:
+Build and deploy the static site and Worker to Cloudflare with:
 
 ```powershell
 npm run deploy:cloudflare
 ```
 
+To rotate the push keys, generate a P-256 pair, then pipe the raw base64url public key into `wrangler secret put VAPID_PUBLIC_KEY` and the private JWK JSON into `wrangler secret put VAPID_PRIVATE_KEY_JWK`. Pipe from a POSIX shell, not PowerShell, to avoid a UTF-8 BOM corrupting the secret. Existing subscriptions must re-subscribe after a rotation.
+
 ## Sources and licences
 
-- Forecast and geocoding: [Open-Meteo](https://open-meteo.com/), weather data under CC BY 4.0.
+- Forecast, geocoding and air quality: [Open-Meteo](https://open-meteo.com/), weather data under CC BY 4.0, air quality based on CAMS.
 - Two-hour rain nowcast: [Buienradar.nl](https://www.buienradar.nl/overbuienradar/gratis-weerdata), noncommercial website use with attribution.
 - Belgian station observations: [KMI/IRM Open Data](https://opendata.meteo.be/).
 

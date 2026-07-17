@@ -24,18 +24,22 @@ test("Buienradar text becomes dated rain points", () => {
   assert.ok(Math.abs(points[1].mmPerHour - 0.1) < 0.0001);
 });
 
-test("rain summary prioritises a decision over raw values", () => {
+test("rain summary returns language-neutral decision data", () => {
   const now = Date.parse("2026-07-17T16:00:00Z");
-  const formatTime = (epoch) => new Date(epoch).toISOString().slice(11, 16);
-  const dry = summarizeRain([{ time: now + 300_000, mmPerHour: 0 }], { nowEpoch: now, formatTime });
-  assert.match(dry.headline, /No rain expected/);
+  const dry = summarizeRain([{ time: now + 300_000, mmPerHour: 0 }], { nowEpoch: now });
+  assert.equal(dry.kind, "dry");
+  assert.equal(dry.count, 1);
 
   const later = summarizeRain([
     { time: now + 900_000, mmPerHour: 0.5 },
     { time: now + 1_200_000, mmPerHour: 2 }
-  ], { nowEpoch: now, formatTime });
-  assert.match(later.headline, /about 15 minutes/);
-  assert.match(later.detail, /moderate rain/);
+  ], { nowEpoch: now });
+  assert.equal(later.kind, "upcoming");
+  assert.equal(later.minutesUntil, 15);
+  assert.equal(later.strongestMmPerHour, 2);
+  assert.equal(later.endTime, now + 1_200_000 + 300_000);
+
+  assert.equal(summarizeRain([], { nowEpoch: now }).kind, "unavailable");
 });
 
 test("nearest observation ignores stale reports", () => {

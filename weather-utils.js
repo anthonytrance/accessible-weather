@@ -88,49 +88,33 @@ export function rainIntensityLabel(mmPerHour) {
   return "very heavy rain";
 }
 
+// Returns language-neutral rain-summary data; i18n.js formatRainSummary()
+// turns it into localized sentences for the app and for push notifications.
 export function summarizeRain(points, options = {}) {
-  const {
-    nowEpoch = Date.now(),
-    formatTime = (epoch) => new Date(epoch).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
-    sourceLabel = "forecast"
-  } = options;
+  const { nowEpoch = Date.now() } = options;
 
   const future = points.filter((point) => point.time >= nowEpoch - 6 * 60 * 1000);
-  if (!future.length) {
-    return {
-      headline: "Short-term rain data is unavailable.",
-      detail: `The ${sourceLabel} did not return usable future values.`
-    };
-  }
+  if (!future.length) return { kind: "unavailable" };
 
   const wet = future.filter((point) => point.mmPerHour >= 0.05);
-  if (!wet.length) {
-    return {
-      headline: "No rain expected in the next two hours.",
-      detail: `All ${future.length} available ${sourceLabel} intervals are dry.`
-    };
-  }
+  if (!wet.length) return { kind: "dry", count: future.length };
 
   const first = wet[0];
   const last = wet.at(-1);
   const strongest = wet.reduce((maximum, point) => point.mmPerHour > maximum.mmPerHour ? point : maximum, wet[0]);
   const minutesUntil = Math.max(0, Math.round((first.time - nowEpoch) / 60000));
   const rainingNow = minutesUntil <= 7;
-  const firstLabel = rainIntensityLabel(first.mmPerHour);
-  const strongestLabel = rainIntensityLabel(strongest.mmPerHour);
-  const endEstimate = last.time + 5 * 60 * 1000;
 
-  let headline;
-  if (rainingNow) {
-    headline = `${capitalize(firstLabel)} now, expected to continue until about ${formatTime(endEstimate)}.`;
-  } else {
-    headline = `Rain expected in about ${minutesUntil} minutes, around ${formatTime(first.time)}.`;
-  }
-
-  let detail = `The strongest interval is ${strongestLabel} near ${formatTime(strongest.time)}.`;
-  if (!rainingNow) detail += ` It currently appears to end around ${formatTime(endEstimate)}.`;
-
-  return { headline, detail };
+  return {
+    kind: rainingNow ? "raining" : "upcoming",
+    count: future.length,
+    minutesUntil,
+    firstTime: first.time,
+    endTime: last.time + 5 * 60 * 1000,
+    strongestTime: strongest.time,
+    firstMmPerHour: first.mmPerHour,
+    strongestMmPerHour: strongest.mmPerHour
+  };
 }
 
 export function nearestObservation(observations, latitude, longitude, maxAgeHours = 4, nowEpoch = Date.now()) {

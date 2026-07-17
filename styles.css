@@ -468,6 +468,86 @@ summary {
   margin-bottom: 1rem;
 }
 
+.preference-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.preference-grid .preference-row {
+  margin-bottom: 0;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1rem;
+}
+
+.hero-icon {
+  display: inline-flex;
+  color: var(--accent-dark);
+}
+
+.wx-icon {
+  width: 1.6rem;
+  height: 1.6rem;
+  flex-shrink: 0;
+}
+
+.wx-icon-hero {
+  width: 3.4rem;
+  height: 3.4rem;
+}
+
+.wx-icon-holder {
+  display: inline-flex;
+  align-items: flex-start;
+  padding-top: 0.1rem;
+}
+
+.wx-icon[data-icon="clear-day"],
+.wx-icon[data-icon="partly-day"] {
+  color: #b7791f;
+}
+
+.wx-icon[data-icon="clear-night"],
+.wx-icon[data-icon="partly-night"] {
+  color: #553c9a;
+}
+
+.wx-icon[data-icon="rain"],
+.wx-icon[data-icon="heavy-rain"],
+.wx-icon[data-icon="drizzle"],
+.wx-icon[data-icon="sleet"] {
+  color: var(--rain);
+}
+
+.wx-icon[data-icon="thunder"] {
+  color: var(--rain-heavy);
+}
+
+.forecast-point-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+
+.forecast-text {
+  min-width: 0;
+}
+
+.notif-status {
+  margin-bottom: 0.75rem;
+}
+
+.briefing-row {
+  margin-top: 1rem;
+  max-width: 22rem;
+}
+
 .privacy-note {
   max-width: 55rem;
   margin: 1rem 0 0;
@@ -579,5 +659,15 @@ summary {
   .forecast-tab[aria-selected="true"] {
     background: var(--accent-dark);
     color: #071b29;
+  }
+
+  .wx-icon[data-icon="clear-day"],
+  .wx-icon[data-icon="partly-day"] {
+    color: #f6c453;
+  }
+
+  .wx-icon[data-icon="clear-night"],
+  .wx-icon[data-icon="partly-night"] {
+    color: #c4b5fd;
   }
 }

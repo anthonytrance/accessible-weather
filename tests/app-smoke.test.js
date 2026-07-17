@@ -20,18 +20,38 @@ test("the app loads Mechelen weather and renders its decision-first interface", 
   globalThis.localStorage = dom.window.localStorage;
   globalThis.fetch = createFetchMock();
 
+  // Pin metric units and English so assertions do not depend on the host locale.
+  dom.window.localStorage.setItem("weather-clearly.v1", JSON.stringify({
+    language: "en",
+    temperatureUnit: "celsius",
+    windUnit: "kmh",
+    precipitationUnit: "mm",
+    savedLocations: []
+  }));
+
   try {
     await import(`../app.js?smoke=${Date.now()}`);
     await waitFor(() => !document.getElementById("weather-content").hidden);
 
     assert.equal(document.getElementById("weather-location-heading").textContent, "Mechelen");
-    assert.match(document.getElementById("decision-summary").textContent, /Nearby measurement 24°C/);
+    assert.match(document.getElementById("decision-summary").textContent, /Nearby measurement 23\.6°C/);
     assert.equal(document.getElementById("measured-observation").hidden, false);
     assert.match(document.getElementById("station-description").textContent, /Sint-Katelijne-Waver/);
-    assert.equal(document.querySelectorAll("#hourly-list li").length, 12);
-    assert.equal(document.querySelectorAll("#hourly-list li")[0].children.length, 0);
+
+    const hourlyItems = document.querySelectorAll("#hourly-list li");
+    assert.equal(hourlyItems.length, 12);
+    assert.equal(hourlyItems[0].querySelectorAll(".wx-icon-holder").length, 1);
+    assert.match(hourlyItems[0].textContent, /25\.0°C/);
     assert.equal(document.querySelectorAll("#daily-list li").length, 10);
+    assert.match(document.querySelector("#daily-list li").textContent, /^Today\./);
     assert.equal(document.querySelectorAll("#rain-timeline li").length, 24);
+
+    assert.equal(document.getElementById("sun-summary").hidden, false);
+    assert.match(document.getElementById("sun-summary").textContent, /daylight/);
+    assert.equal(document.getElementById("air-section").hidden, false);
+    assert.match(document.getElementById("air-values").textContent, /European air quality index/);
+
+    assert.match(document.getElementById("notif-status").textContent, /push notifications/i);
 
     const longTab = document.getElementById("forecast-long-tab");
     longTab.click();
@@ -73,6 +93,7 @@ function createFetchMock() {
       temperature_2m: 25.2,
       apparent_temperature: 23.3,
       relative_humidity_2m: 43,
+      is_day: 1,
       precipitation: 0,
       rain: 0,
       showers: 0,
@@ -95,6 +116,9 @@ function createFetchMock() {
       temperature_2m: hourlyTimes.map(() => 25),
       apparent_temperature: hourlyTimes.map(() => 23),
       relative_humidity_2m: hourlyTimes.map(() => 45),
+      dew_point_2m: hourlyTimes.map(() => 12.4),
+      uv_index: hourlyTimes.map(() => 4.2),
+      is_day: hourlyTimes.map(() => 1),
       precipitation_probability: hourlyTimes.map(() => 0),
       precipitation: hourlyTimes.map(() => 0),
       weather_code: hourlyTimes.map(() => 1),
@@ -111,7 +135,27 @@ function createFetchMock() {
       precipitation_probability_max: dailyTimes.map(() => 10),
       precipitation_sum: dailyTimes.map(() => 0),
       sunrise: dailyTimes.map((date) => `${date}T05:45`),
-      sunset: dailyTimes.map((date) => `${date}T21:45`)
+      sunset: dailyTimes.map((date) => `${date}T21:45`),
+      daylight_duration: dailyTimes.map(() => 57_600),
+      uv_index_max: dailyTimes.map(() => 5.4),
+      wind_speed_10m_max: dailyTimes.map(() => 22)
+    }
+  };
+
+  const air = {
+    current: {
+      european_aqi: 28,
+      us_aqi: 41,
+      pm2_5: 6.1,
+      pm10: 11.4,
+      ozone: 62,
+      nitrogen_dioxide: 9.8,
+      alder_pollen: 0,
+      birch_pollen: 0,
+      grass_pollen: 14,
+      mugwort_pollen: 0,
+      olive_pollen: 0,
+      ragweed_pollen: 0
     }
   };
 
@@ -136,6 +180,7 @@ function createFetchMock() {
 
   return async (input) => {
     const url = String(input);
+    if (url.includes("air-quality-api.open-meteo.com")) return jsonResponse(air);
     if (url.includes("api.open-meteo.com/v1/forecast")) return jsonResponse(weather);
     if (url.includes("gps.buienradar.nl")) return new Response(radarText, { status: 200 });
     if (url.includes("/api/kmi") || url.includes("data/kmi-latest.json")) return jsonResponse(kmi);

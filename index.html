@@ -77,55 +77,54 @@
           </div>
 
           <div id="measured-observation" class="observation-block" hidden>
-            <h3>Nearest measured observation</h3>
+            <h3>Observed nearby</h3>
             <p id="station-description" class="source-note"></p>
             <dl id="measured-values" class="weather-values"></dl>
           </div>
 
           <div class="observation-block">
-            <h3 id="model-heading">Local model estimate</h3>
-            <p class="source-note">This is calculated for the selected coordinates. It is not a thermometer reading.</p>
+            <h3 id="model-heading">Estimated here</h3>
+            <p class="source-note">Calculated for this location, not measured.</p>
             <dl id="current-values" class="weather-values"></dl>
           </div>
         </section>
 
-        <section class="section-card rain-section" aria-labelledby="rain-heading">
+        <section class="section-card forecast-card" aria-labelledby="forecast-heading">
           <div class="section-heading-row">
-            <h2 id="rain-heading">Rain, next two hours</h2>
-            <p id="rain-source-badge" class="source-badge"></p>
+            <h2 id="forecast-heading">Forecast</h2>
+            <p class="data-age">Open-Meteo model</p>
           </div>
-          <p id="rain-summary" class="section-summary"></p>
-          <div id="rain-visual" class="rain-visual" aria-hidden="true"></div>
-          <details id="rain-details">
-            <summary>Detailed rain timeline</summary>
-            <p id="rain-detail-intro" class="source-note"></p>
-            <ol id="rain-timeline" class="timeline"></ol>
-          </details>
-        </section>
 
-        <section class="section-card" aria-labelledby="hourly-heading">
-          <h2 id="hourly-heading">Next 12 hours</h2>
-          <section class="table-scroll" tabindex="0" aria-label="Scrollable twelve-hour weather forecast">
-            <table>
-              <caption>Temperature, rain chance and wind by hour</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Time</th>
-                  <th scope="col">Conditions</th>
-                  <th scope="col">Temperature</th>
-                  <th scope="col">Rain chance</th>
-                  <th scope="col">Rain</th>
-                  <th scope="col">Wind</th>
-                </tr>
-              </thead>
-              <tbody id="hourly-body"></tbody>
-            </table>
-          </section>
-        </section>
+          <div class="forecast-tabs" role="tablist" aria-label="Forecast range">
+            <button id="forecast-short-tab" class="forecast-tab" type="button" role="tab" aria-selected="true" aria-controls="forecast-short-panel">Next 12 hours</button>
+            <button id="forecast-long-tab" class="forecast-tab" type="button" role="tab" aria-selected="false" aria-controls="forecast-long-panel" tabindex="-1">10-day outlook</button>
+          </div>
 
-        <section class="section-card" aria-labelledby="daily-heading">
-          <h2 id="daily-heading">Five-day outlook</h2>
-          <div id="daily-list" class="daily-list"></div>
+          <div id="forecast-short-panel" class="forecast-panel" role="tabpanel" aria-labelledby="forecast-short-tab" tabindex="0">
+            <section class="forecast-block rain-section" aria-labelledby="rain-heading">
+              <div class="section-heading-row">
+                <h3 id="rain-heading">Rain, next two hours</h3>
+                <p id="rain-source-badge" class="source-badge"></p>
+              </div>
+              <p id="rain-summary" class="section-summary"></p>
+              <div id="rain-visual" class="rain-visual" aria-hidden="true"></div>
+              <details id="rain-details">
+                <summary>Detailed rain timeline</summary>
+                <p id="rain-detail-intro" class="source-note"></p>
+                <ol id="rain-timeline" class="timeline"></ol>
+              </details>
+            </section>
+
+            <section class="forecast-block" aria-labelledby="hourly-heading">
+              <h3 id="hourly-heading">Hour by hour</h3>
+              <ol id="hourly-list" class="forecast-point-list"></ol>
+            </section>
+          </div>
+
+          <div id="forecast-long-panel" class="forecast-panel" role="tabpanel" aria-labelledby="forecast-long-tab" tabindex="0" hidden>
+            <p class="source-note">Useful for planning. Exact details become less certain further ahead.</p>
+            <ol id="daily-list" class="daily-list forecast-point-list" aria-label="Ten-day forecast"></ol>
+          </div>
         </section>
 
         <section class="section-card compact-card" aria-labelledby="settings-heading">

@@ -25,12 +25,22 @@ test("the app loads Mechelen weather and renders its decision-first interface", 
     await waitFor(() => !document.getElementById("weather-content").hidden);
 
     assert.equal(document.getElementById("weather-location-heading").textContent, "Mechelen");
-    assert.match(document.getElementById("decision-summary").textContent, /No rain expected/);
+    assert.match(document.getElementById("decision-summary").textContent, /Nearby measurement 24°C/);
     assert.equal(document.getElementById("measured-observation").hidden, false);
     assert.match(document.getElementById("station-description").textContent, /Sint-Katelijne-Waver/);
-    assert.equal(document.querySelectorAll("#hourly-body tr").length, 12);
-    assert.equal(document.querySelectorAll("#daily-list article").length, 5);
+    assert.equal(document.querySelectorAll("#hourly-list li").length, 12);
+    assert.equal(document.querySelectorAll("#hourly-list li")[0].children.length, 0);
+    assert.equal(document.querySelectorAll("#daily-list li").length, 10);
     assert.equal(document.querySelectorAll("#rain-timeline li").length, 24);
+
+    const longTab = document.getElementById("forecast-long-tab");
+    longTab.click();
+    assert.equal(longTab.getAttribute("aria-selected"), "true");
+    assert.equal(document.getElementById("forecast-short-panel").hidden, true);
+    assert.equal(document.getElementById("forecast-long-panel").hidden, false);
+
+    longTab.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    assert.equal(document.getElementById("forecast-short-tab").getAttribute("aria-selected"), "true");
   } finally {
     globalThis.window = original.window;
     globalThis.document = original.document;
@@ -48,7 +58,7 @@ function createFetchMock() {
   const currentIso = localNow.toISOString().slice(0, 16);
   const hourlyTimes = Array.from({ length: 120 }, (_, index) => new Date(localNow.getTime() + index * 3_600_000).toISOString().slice(0, 16));
   const minutelyTimes = Array.from({ length: 48 }, (_, index) => new Date(localNow.getTime() + index * 900_000).toISOString().slice(0, 16));
-  const dailyTimes = Array.from({ length: 5 }, (_, index) => new Date(localNow.getTime() + index * 86_400_000).toISOString().slice(0, 10));
+  const dailyTimes = Array.from({ length: 10 }, (_, index) => new Date(localNow.getTime() + index * 86_400_000).toISOString().slice(0, 10));
   const radarStart = Math.ceil((now + offsetSeconds * 1000) / 300_000) * 300_000;
   const radarText = Array.from({ length: 24 }, (_, index) => {
     const time = new Date(radarStart + index * 300_000);

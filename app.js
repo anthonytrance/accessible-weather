@@ -1,5 +1,4 @@
 import {
-  capitalize,
   compassDirection,
   isBelgium,
   isBuienradarCoverage,
@@ -28,7 +27,8 @@ const elements = Object.fromEntries([
   "save-location-button", "decision-summary", "summary-caveat", "weather-age",
   "measured-observation", "station-description", "measured-values", "current-values",
   "rain-summary", "rain-source-badge", "rain-visual", "rain-detail-intro", "rain-timeline",
-  "hourly-body", "daily-list", "units-select", "forget-button", "buienradar-credit", "kmi-credit"
+  "forecast-short-tab", "forecast-long-tab", "forecast-short-panel", "forecast-long-panel",
+  "hourly-list", "daily-list", "units-select", "forget-button", "buienradar-credit", "kmi-credit"
 ].map((id) => [id, document.getElementById(id)]));
 
 let settings = loadSettings();
@@ -57,6 +57,34 @@ function registerEvents() {
     announce(`Units changed to ${settings.units}.`);
   });
   elements["forget-button"].addEventListener("click", forgetSettings);
+  const forecastTabs = [elements["forecast-short-tab"], elements["forecast-long-tab"]];
+  forecastTabs.forEach((tab) => {
+    tab.addEventListener("click", () => selectForecastTab(tab === forecastTabs[0] ? "short" : "long"));
+    tab.addEventListener("keydown", (event) => handleForecastTabKeydown(event, forecastTabs));
+  });
+}
+
+function selectForecastTab(range) {
+  const shortSelected = range === "short";
+  elements["forecast-short-tab"].setAttribute("aria-selected", String(shortSelected));
+  elements["forecast-short-tab"].tabIndex = shortSelected ? 0 : -1;
+  elements["forecast-long-tab"].setAttribute("aria-selected", String(!shortSelected));
+  elements["forecast-long-tab"].tabIndex = shortSelected ? -1 : 0;
+  elements["forecast-short-panel"].hidden = !shortSelected;
+  elements["forecast-long-panel"].hidden = shortSelected;
+}
+
+function handleForecastTabKeydown(event, tabs) {
+  const currentIndex = tabs.indexOf(event.currentTarget);
+  let nextIndex = null;
+  if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabs.length;
+  if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+  if (event.key === "Home") nextIndex = 0;
+  if (event.key === "End") nextIndex = tabs.length - 1;
+  if (nextIndex === null) return;
+  event.preventDefault();
+  tabs[nextIndex].focus();
+  tabs[nextIndex].click();
 }
 
 async function handleSearch(event) {
@@ -223,7 +251,7 @@ async function fetchOpenMeteo(location, signal) {
     hourly: "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m",
     daily: "weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_probability_max,precipitation_sum,sunrise,sunset",
     timezone: "auto",
-    forecast_days: "5"
+    forecast_days: "10"
   });
   const response = await fetch(url, { signal });
   if (!response.ok) throw new Error(`Forecast returned ${response.status}.`);
@@ -284,7 +312,7 @@ function renderHeading() {
   elements["weather-location-heading"].textContent = currentLocation.name;
   elements["location-context"].textContent = currentLocation.detail || coordinateLabel(currentLocation);
   const currentEpoch = localIsoToEpoch(latestWeather.current.time, latestWeather.utc_offset_seconds);
-  elements["weather-age"].textContent = `Model updated for ${formatTime(currentEpoch)} local time.`;
+  elements["weather-age"].textContent = `Model time ${formatTime(currentEpoch)}.`;
 }
 
 function renderDecisionSummary() {
@@ -294,15 +322,19 @@ function renderDecisionSummary() {
     formatTime,
     sourceLabel: latestRain.source.includes("Buienradar") ? "five-minute radar" : "15-minute model"
   });
-  elements["decision-summary"].textContent = `${formatTemperature(current.temperature_2m)}, feels like ${formatTemperature(current.apparent_temperature)}. ${rainSummary.headline}`;
+  const measuredTemperature = latestObservation?.temperatureC;
+  const temperatureSummary = Number.isFinite(Number(measuredTemperature))
+    ? `Nearby measurement ${formatTemperature(measuredTemperature)}. Feels like ${formatTemperature(current.apparent_temperature)} here, model estimate.`
+    : `Estimated here ${formatTemperature(current.temperature_2m)}, feels like ${formatTemperature(current.apparent_temperature)}.`;
+  elements["decision-summary"].textContent = `${temperatureSummary} ${rainSummary.headline}`;
   elements["summary-caveat"].textContent = `${weatherLabel(current.weather_code)}. ${rainSummary.detail}`;
 }
 
 function renderCurrentConditions() {
   const current = latestWeather.current;
   renderDefinitionList(elements["current-values"], [
-    ["Temperature", formatTemperature(current.temperature_2m)],
-    ["Feels like", formatTemperature(current.apparent_temperature)],
+    ["Estimated temperature", formatTemperature(current.temperature_2m)],
+    ["Feels like estimate", formatTemperature(current.apparent_temperature)],
     ["Humidity", `${Math.round(current.relative_humidity_2m)}%`],
     ["Wind", `${formatSpeed(current.wind_speed_10m)} from ${compassDirection(current.wind_direction_10m)}`],
     ["Gusts", formatSpeed(current.wind_gusts_10m)],
@@ -318,10 +350,9 @@ function renderCurrentConditions() {
   }
 
   const ageMinutes = Math.max(0, Math.round((Date.now() - Date.parse(latestObservation.timestamp)) / 60_000));
-  const interval = latestObservation.observationPeriodMinutes ? `, ${latestObservation.observationPeriodMinutes}-minute observation` : "";
-  elements["station-description"].textContent = `${capitalize(latestObservation.providerType)} station ${titleCase(latestObservation.name)}, ${formatDistance(latestObservation.distanceKm)} away. Measured ${formatTime(Date.parse(latestObservation.timestamp))}, about ${ageMinutes} minutes ago${interval}. Preliminary and unvalidated.`;
+  elements["station-description"].textContent = `KMI ${titleCase(latestObservation.name)}, ${formatDistance(latestObservation.distanceKm)} away. ${formatTime(Date.parse(latestObservation.timestamp))}, ${ageMinutes} minutes ago. Preliminary.`;
   renderDefinitionList(elements["measured-values"], [
-    ["Measured temperature", formatTemperature(latestObservation.temperatureC)],
+    ["Temperature", formatTemperature(latestObservation.temperatureC)],
     ["Humidity", formatOptional(latestObservation.humidityPercent, (value) => `${Math.round(value)}%`)],
     ["Wind", formatOptional(latestObservation.windSpeedKmh, (value) => `${formatSpeed(value)} from ${compassDirection(latestObservation.windDirectionDegrees)}`, true)],
     ["Gusts", formatOptional(latestObservation.windGustKmh, (value) => formatSpeed(value), true)],
@@ -357,7 +388,7 @@ function renderRain() {
 }
 
 function renderHourly() {
-  elements["hourly-body"].replaceChildren();
+  elements["hourly-list"].replaceChildren();
   const offset = latestWeather.utc_offset_seconds;
   const now = Date.now() - 30 * 60_000;
   const indices = latestWeather.hourly.time
@@ -366,40 +397,21 @@ function renderHourly() {
     .slice(0, 12);
 
   for (const { index, epoch } of indices) {
-    const row = document.createElement("tr");
-    const values = [
-      formatTime(epoch),
-      weatherLabel(latestWeather.hourly.weather_code[index]),
-      `${formatTemperature(latestWeather.hourly.temperature_2m[index])}, feels ${formatTemperature(latestWeather.hourly.apparent_temperature[index])}`,
-      `${Math.round(latestWeather.hourly.precipitation_probability[index] ?? 0)}%`,
-      formatPrecipitation(latestWeather.hourly.precipitation[index] ?? 0),
-      `${formatSpeed(latestWeather.hourly.wind_speed_10m[index])}, gusts ${formatSpeed(latestWeather.hourly.wind_gusts_10m[index])}`
-    ];
-    values.forEach((value, cellIndex) => {
-      const cell = document.createElement(cellIndex === 0 ? "th" : "td");
-      if (cellIndex === 0) cell.scope = "row";
-      cell.textContent = value;
-      row.append(cell);
-    });
-    elements["hourly-body"].append(row);
+    const item = document.createElement("li");
+    const rainChance = Math.round(latestWeather.hourly.precipitation_probability[index] ?? 0);
+    item.textContent = `${formatTime(epoch)}. ${weatherLabel(latestWeather.hourly.weather_code[index])}; ${formatTemperature(latestWeather.hourly.temperature_2m[index])}, feels ${formatTemperature(latestWeather.hourly.apparent_temperature[index])}; rain ${rainChance}%, ${formatPrecipitation(latestWeather.hourly.precipitation[index] ?? 0)}; wind ${formatSpeed(latestWeather.hourly.wind_speed_10m[index])}, gusts ${formatSpeed(latestWeather.hourly.wind_gusts_10m[index])}.`;
+    elements["hourly-list"].append(item);
   }
 }
 
 function renderDaily() {
   elements["daily-list"].replaceChildren();
   latestWeather.daily.time.forEach((date, index) => {
-    const article = document.createElement("article");
-    article.className = "daily-item";
-    const heading = document.createElement("h3");
-    heading.textContent = index === 0 ? "Today" : formatDay(date);
-    const conditions = document.createElement("p");
-    conditions.textContent = weatherLabel(latestWeather.daily.weather_code[index]);
-    const temperatures = document.createElement("p");
-    temperatures.textContent = `High ${formatTemperature(latestWeather.daily.temperature_2m_max[index])}, low ${formatTemperature(latestWeather.daily.temperature_2m_min[index])}.`;
-    const rain = document.createElement("p");
-    rain.textContent = `${Math.round(latestWeather.daily.precipitation_probability_max[index] ?? 0)}% rain chance, ${formatPrecipitation(latestWeather.daily.precipitation_sum[index] ?? 0)} total.`;
-    article.append(heading, conditions, temperatures, rain);
-    elements["daily-list"].append(article);
+    const item = document.createElement("li");
+    const day = index === 0 ? "Today" : formatDay(date);
+    const rainChance = Math.round(latestWeather.daily.precipitation_probability_max[index] ?? 0);
+    item.textContent = `${day}. ${weatherLabel(latestWeather.daily.weather_code[index])}; high ${formatTemperature(latestWeather.daily.temperature_2m_max[index])}, low ${formatTemperature(latestWeather.daily.temperature_2m_min[index])}; rain ${rainChance}%, ${formatPrecipitation(latestWeather.daily.precipitation_sum[index] ?? 0)} total.`;
+    elements["daily-list"].append(item);
   });
 }
 

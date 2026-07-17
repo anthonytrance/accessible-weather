@@ -1,4 +1,4 @@
-const CACHE_NAME = "weather-clearly-shell-v2";
+const CACHE_NAME = "weather-clearly-shell-v3";
 const SHELL = [
   "./",
   "./index.html",
@@ -26,7 +26,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.origin !== self.location.origin) return;
 
-  if (url.pathname.endsWith("/data/kmi-latest.json")) {
+  if (url.pathname.endsWith("/api/kmi") || url.pathname.endsWith("/data/kmi-latest.json")) {
     event.respondWith(fetch(event.request));
     return;
   }

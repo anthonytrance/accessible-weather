@@ -241,9 +241,22 @@ async function fetchBuienradar(location, utcOffsetSeconds, signal) {
 }
 
 async function fetchKmiObservation(location, signal) {
-  const response = await fetch(`./data/kmi-latest.json?time=${Math.floor(Date.now() / 600_000)}`, { signal, cache: "no-store" });
-  if (!response.ok) return null;
-  const data = await response.json();
+  const time = Math.floor(Date.now() / 600_000);
+  let data = null;
+  for (const url of [`./api/kmi?time=${time}`, `./data/kmi-latest.json?time=${time}`]) {
+    try {
+      const response = await fetch(url, { signal, cache: "no-store" });
+      if (!response.ok || !response.headers.get("content-type")?.includes("application/json")) continue;
+      const candidate = await response.json();
+      if (Array.isArray(candidate.observations)) {
+        data = candidate;
+        break;
+      }
+    } catch (error) {
+      if (error.name === "AbortError") throw error;
+    }
+  }
+  if (!data) return null;
   const observation = nearestObservation(data.observations ?? [], location.latitude, location.longitude, 4);
   return observation ? { ...observation, feedGeneratedAt: data.generatedAt } : null;
 }

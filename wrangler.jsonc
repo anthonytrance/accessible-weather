@@ -2,8 +2,20 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "accessible-weather",
   "compatibility_date": "2026-07-17",
+  "main": "./src/worker.js",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "kv_namespaces": [
+    {
+      "binding": "KMI_DATA",
+      "id": "5d9572d283674d48a8353b4534f8f99b"
+    }
+  ],
+  "triggers": {
+    "crons": ["3,13,23,33,43,53 * * * *"]
   }
 }

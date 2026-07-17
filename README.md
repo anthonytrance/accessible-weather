@@ -16,9 +16,9 @@ A blind-first, installable weather website for precise current conditions and sh
 
 ## Data architecture
 
-The browser calls Open-Meteo and Buienradar directly. KMI's GeoServer does not currently send a browser CORS header, so a scheduled GitHub Action reads its public WFS observation layers, converts them to a small JSON file, and redeploys the site when observations change.
+The browser calls Open-Meteo and Buienradar directly. KMI's GeoServer does not currently send a browser CORS header, so the Cloudflare Worker reads its public WFS observation layers every ten minutes through a Cron Trigger. It stores the latest converted snapshot in Workers KV and serves it from `/api/kmi` on the same origin as the website.
 
-GitHub can disable scheduled workflows in a public repository after 60 days without repository activity. The observation commits normally keep this repository active, but the KMI refresh workflow can also be re-enabled manually from GitHub Actions if necessary.
+The checked-in KMI JSON remains an emergency fallback and can be refreshed manually from GitHub Actions or a local checkout. GitHub is source control and a static hosting fallback, but it is not part of the live Cloudflare weather-update path.
 
 Open-Meteo's “current” conditions are model values, not station measurements. The interface labels that distinction explicitly.
 

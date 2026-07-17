@@ -128,7 +128,7 @@ function createFetchMock() {
     const url = String(input);
     if (url.includes("api.open-meteo.com/v1/forecast")) return jsonResponse(weather);
     if (url.includes("gps.buienradar.nl")) return new Response(radarText, { status: 200 });
-    if (url.includes("data/kmi-latest.json")) return jsonResponse(kmi);
+    if (url.includes("/api/kmi") || url.includes("data/kmi-latest.json")) return jsonResponse(kmi);
     throw new Error(`Unexpected test request: ${url}`);
   };
 }

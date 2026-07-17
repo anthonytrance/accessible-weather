@@ -376,7 +376,7 @@ async function fetchOpenMeteo(location, signal) {
     daily: "weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,daylight_duration,uv_index_max,wind_speed_10m_max",
     timezone: "auto",
     past_days: "1",
-    forecast_days: "14"
+    forecast_days: "16"
   });
   const response = await fetch(url, { signal });
   if (!response.ok) throw new Error(`Forecast returned ${response.status}.`);

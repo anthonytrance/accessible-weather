@@ -42,7 +42,7 @@ test("the app loads Mechelen weather and renders its decision-first interface", 
     assert.equal(hourlyItems.length, 12);
     assert.equal(hourlyItems[0].querySelectorAll(".wx-icon-holder").length, 1);
     assert.match(hourlyItems[0].textContent, /25\.0°C/);
-    assert.equal(document.querySelectorAll("#daily-list li").length, 14);
+    assert.equal(document.querySelectorAll("#daily-list li").length, 16);
     assert.match(document.querySelector("#daily-list li").textContent, /^Today\./);
     assert.equal(document.querySelectorAll("#rain-timeline li").length, 24);
 
@@ -78,7 +78,7 @@ function createFetchMock() {
   const currentIso = localNow.toISOString().slice(0, 16);
   const hourlyTimes = Array.from({ length: 120 }, (_, index) => new Date(localNow.getTime() + index * 3_600_000).toISOString().slice(0, 16));
   const minutelyTimes = Array.from({ length: 48 }, (_, index) => new Date(localNow.getTime() + index * 900_000).toISOString().slice(0, 16));
-  const dailyTimes = Array.from({ length: 14 }, (_, index) => new Date(localNow.getTime() + index * 86_400_000).toISOString().slice(0, 10));
+  const dailyTimes = Array.from({ length: 16 }, (_, index) => new Date(localNow.getTime() + index * 86_400_000).toISOString().slice(0, 10));
   const radarStart = Math.ceil((now + offsetSeconds * 1000) / 300_000) * 300_000;
   const radarText = Array.from({ length: 24 }, (_, index) => {
     const time = new Date(radarStart + index * 300_000);

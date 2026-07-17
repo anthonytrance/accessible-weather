@@ -1,6 +1,6 @@
 # Weather, clearly
 
-A blind-first, installable weather website for precise current conditions and short-term rain timing. It runs as a static GitHub Pages site, requires no account, and stores preferences only in the visitor's browser.
+A blind-first, installable weather website for precise current conditions and short-term rain timing. It is deployed as a static Cloudflare Worker at [accessible-weather.pitch-363.workers.dev](https://accessible-weather.pitch-363.workers.dev/), requires no account, and stores preferences only in the visitor's browser. GitHub Pages remains available as a fallback.
 
 ## What it does
 
@@ -42,6 +42,12 @@ Refresh the checked-in KMI data with:
 
 ```powershell
 npm run update-kmi
+```
+
+Build and deploy the static site to Cloudflare with:
+
+```powershell
+npm run deploy:cloudflare
 ```
 
 ## Sources and licences

@@ -1,5 +1,5 @@
 {
-  "name": "Weather, clearly",
+  "name": "Weather",
   "short_name": "Weather",
   "description": "Accessible current weather and short-term rain forecasts.",
   "start_url": "./",

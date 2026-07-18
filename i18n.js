@@ -7,7 +7,7 @@ export const LANGUAGES = [
 ];
 
 const en = {
-  "app.name": "Weather, clearly",
+  "app.name": "Weather",
   "app.eyebrow": "Accessible weather",
   "app.tagline": "Precise conditions and rain timing, without relying on a map.",
   "tabs.label": "Weather views",
@@ -264,7 +264,7 @@ const en = {
 };
 
 const nl = {
-  "app.name": "Weer, helder",
+  "app.name": "Weer",
   "app.eyebrow": "Toegankelijk weer",
   "app.tagline": "Precieze omstandigheden en regentiming, zonder kaart.",
   "tabs.label": "Weerweergaven",
@@ -521,7 +521,7 @@ const nl = {
 };
 
 const fr = {
-  "app.name": "Météo, clairement",
+  "app.name": "Météo",
   "app.eyebrow": "Météo accessible",
   "app.tagline": "Des conditions précises et l'heure de la pluie, sans dépendre d'une carte.",
   "tabs.label": "Vues météo",
@@ -778,7 +778,7 @@ const fr = {
 };
 
 const de = {
-  "app.name": "Wetter, klar",
+  "app.name": "Wetter",
   "app.eyebrow": "Barrierefreies Wetter",
   "app.tagline": "Präzise Bedingungen und Regenzeiten, ohne auf eine Karte angewiesen zu sein.",
   "tabs.label": "Wetteransichten",
@@ -1035,7 +1035,7 @@ const de = {
 };
 
 const es = {
-  "app.name": "Tiempo, claro",
+  "app.name": "Tiempo",
   "app.eyebrow": "Tiempo accesible",
   "app.tagline": "Condiciones precisas y el momento de la lluvia, sin depender de un mapa.",
   "tabs.label": "Vistas del tiempo",

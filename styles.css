@@ -78,9 +78,20 @@ a {
 }
 
 .site-header {
-  padding: max(1.5rem, env(safe-area-inset-top)) 0 1.5rem;
+  padding: max(0.75rem, env(safe-area-inset-top)) 0 0.75rem;
   background: linear-gradient(135deg, #102a43, #0b668c);
   color: white;
+}
+
+.site-header h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: normal;
+  line-height: 1.2;
+}
+
+.site-header .header-inner {
+  align-items: center;
 }
 
 .header-inner,

@@ -55,7 +55,7 @@ const elements = Object.fromEntries([
   "rain-summary", "rain-source-badge", "rain-visual", "rain-detail-intro", "rain-timeline",
   "tab-now", "tab-forecast", "tab-deep", "tab-more",
   "view-now", "view-forecast", "view-deep", "view-more",
-  "forecast-content", "hourly-list", "daily-list", "daily-more-button", "air-section", "air-values",
+  "forecast-content", "hourly-list", "hourly-more-button", "daily-list", "daily-more-button", "air-section", "air-values",
   "deep-status", "ens-card", "ens-note", "ens-body", "models-card", "models-note", "models-body",
   "climate-card", "climate-note", "climate-body", "atmos-card", "atmos-values", "atmos-peak",
   "moon-card", "moon-body",
@@ -85,6 +85,7 @@ const climateCache = new Map();
 const CLIMATE_STORAGE_KEY = "weather-clearly.climate.v1";
 const CLIMATE_STORAGE_LIMIT = 20;
 let dailyExpanded = false;
+let hourlyExpanded = false;
 let lastLoadedAt = 0;
 const STALE_AFTER_MS = 5 * 60_000;
 const ANALYSIS_STALE_AFTER_MS = 30 * 60_000;
@@ -134,6 +135,11 @@ function registerEvents() {
     dailyExpanded = !dailyExpanded;
     renderDaily();
     elements["daily-more-button"].focus();
+  });
+  elements["hourly-more-button"].addEventListener("click", () => {
+    hourlyExpanded = !hourlyExpanded;
+    renderHourly();
+    elements["hourly-more-button"].focus();
   });
 
   elements["language-select"].addEventListener("change", () => {
@@ -404,7 +410,10 @@ function useCurrentLocation() {
 }
 
 async function loadWeather(location, { moveFocus = false, refresh = false } = {}) {
-  if (!refresh) dailyExpanded = false;
+  if (!refresh) {
+    dailyExpanded = false;
+    hourlyExpanded = false;
+  }
   const requestedAnalysisKey = analysisLocationKey(location);
   if (latestAnalysis.locationKey !== requestedAnalysisKey) resetAnalysis(location);
   weatherRequestController?.abort();
@@ -940,10 +949,11 @@ function renderHourly() {
   elements["hourly-list"].replaceChildren();
   const offset = latestWeather.utc_offset_seconds;
   const now = Date.now() - 30 * 60_000;
-  const indices = latestWeather.hourly.time
+  const available = latestWeather.hourly.time
     .map((time, index) => ({ index, epoch: localIsoToEpoch(time, offset) }))
     .filter(({ epoch }) => epoch >= now)
-    .slice(0, 12);
+    .slice(0, 24);
+  const indices = hourlyExpanded ? available : available.slice(0, 12);
 
   for (const { index, epoch } of indices) {
     const item = document.createElement("li");
@@ -962,6 +972,11 @@ function renderHourly() {
     appendForecastItem(item, hourly.weather_code[index], isDay, sentence);
     elements["hourly-list"].append(item);
   }
+
+  const remaining = available.length - indices.length;
+  elements["hourly-more-button"].hidden = remaining === 0 && !hourlyExpanded;
+  elements["hourly-more-button"].setAttribute("aria-expanded", String(hourlyExpanded));
+  elements["hourly-more-button"].textContent = t(hourlyExpanded ? "hourly.showFewer" : "hourly.showMore", { count: remaining });
 }
 
 function renderDaily() {

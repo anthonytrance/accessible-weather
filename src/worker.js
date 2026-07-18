@@ -1,12 +1,16 @@
 import { fetchKmiFeed } from "./kmi-feed.js";
 import { processPushSubscriptions, sanitizeSubscriptionRecord, subscriptionIdFromEndpoint } from "./push.js";
+import { serveObservations } from "./obs.js";
+import { serveNowcast } from "./nowcast.js";
 
 const KMI_KEY = "latest";
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, context) {
     const url = new URL(request.url);
     if (url.pathname === "/api/kmi") return serveKmi(request, env);
+    if (url.pathname === "/api/obs") return serveObservations(request, context);
+    if (url.pathname === "/api/nowcast") return serveNowcast(request, context);
     if (url.pathname === "/api/push/vapid-public-key") return serveVapidKey(request, env);
     if (url.pathname === "/api/push/subscribe") return handleSubscribe(request, env);
     if (url.pathname === "/api/push/unsubscribe") return handleUnsubscribe(request, env);

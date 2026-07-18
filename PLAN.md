@@ -37,7 +37,20 @@ Anthony's brief: don't just add decimals. Look at everything, make it genuinely 
 9. Tests: update those that assert whole degrees or English strings; add i18n key-parity test and push helper tests.
 10. README + this file updated; build, test, deploy to Cloudflare; git commit.
 
-## Future ideas (not this pass)
+## Follow-up pass, 2026-07-18 evening (landed, commits 2e7ccf0 + 7718277)
+
+- Long-range forecast extended to 16 days (Open-Meteo maximum).
+- Page shortened: air quality, notifications, preferences and sources are collapsible details sections; tighter mobile spacing; tagline hidden on phones. Anthony chose collapsibles over separate pages.
+- New-visitor defaults are always metric/Celsius (US-locale imperial detection removed).
+
+## Global pass, 2026-07-18 late (LANDED, deployed)
+
+- Worldwide live observations: Worker `/api/obs` proxies NOAA aviationweather.gov METAR (keyless), converts to the KMI schema (`src/obs.js`, RH derived from dewpoint via Magnus), caches 8 min on a 0.5° grid. Client shows nearest airport station within 150 km wherever KMI doesn't apply; KMI still wins in Belgium with METAR as fallback.
+- Nordic radar nowcast: Worker `/api/nowcast` proxies MET Norway Nowcast 2.0 (needs UA header, hence proxy; `src/nowcast.js`), 404 outside radar coverage → client falls back to Open-Meteo model. Verified live: Oslo/Copenhagen/Helsinki radar yes, Riga/Tallinn/Paris no.
+- Air quality confirmed already global (CAMS, both EAQI and US AQI worldwide; pollen stays Europe-only, a data limitation).
+- New i18n keys station.metar.description / sources.metar / sources.metno in all 5 languages; new credits lis; 27 tests green.
+
+## Future ideas (not yet built)
 
 - Official severe-weather warnings via MeteoAlarm CAP feeds (per-country formats, likely need worker proxying and caching; research first).
 - More KMI station fields; historical "this day last year"; moon phase; visibility.

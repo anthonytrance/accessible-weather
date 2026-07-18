@@ -133,6 +133,12 @@ export function isBuienradarCoverage(latitude, longitude) {
   return latitude >= 49.25 && latitude <= 53.75 && longitude >= 2.3 && longitude <= 7.6;
 }
 
+// Rough bounding box for MET Norway's radar nowcast (Nordics and Baltics);
+// the Worker's /api/nowcast returns 404 where actual radar coverage ends.
+export function isMetnoCoverage(latitude, longitude) {
+  return latitude >= 54 && latitude <= 72.5 && longitude >= -1 && longitude <= 33;
+}
+
 export function isBelgium(latitude, longitude) {
   return latitude >= 49.45 && latitude <= 51.55 && longitude >= 2.45 && longitude <= 6.45;
 }

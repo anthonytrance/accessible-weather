@@ -10,8 +10,8 @@ A blind-first, installable weather website for precise current conditions and sh
 - Speaks five languages (English, Dutch, French, German, Spanish), auto-detected with a manual override, covering every label, sentence, weather description, compass point and Beaufort name.
 - Shows temperatures with one decimal everywhere, with locale-aware number formatting.
 - Offers independent unit preferences: Celsius or Fahrenheit, wind in km/h, mph, m/s or Beaufort, precipitation in millimetres or inches.
-- Provides Buienradar five-minute rain nowcasts in its supported region, falling back to Open-Meteo 15-minute model precipitation elsewhere.
-- Shows preliminary KMI/IRM station observations in Belgium, including the station distance and observation age.
+- Provides radar-based five-minute rain nowcasts where radar data exists: Buienradar in the Benelux region and MET Norway in the Nordic region, falling back to Open-Meteo 15-minute model precipitation everywhere else.
+- Shows real measured observations worldwide: preliminary KMI/IRM station observations in Belgium, and the nearest airport weather station (METAR, via the NOAA Aviation Weather Center) everywhere else, always with the station distance and observation age.
 - Displays UV index, dew point, air quality (European AQI, particulates, ozone, NO2) and pollen for Europe.
 - Sends web push notifications: a rain alert shortly before rain starts at a chosen place, and an optional daily briefing at a chosen hour, in the chosen language and units.
 - Has a share button, decorative weather icons that never replace spoken text, and can be installed as a progressive web app.
@@ -19,6 +19,8 @@ A blind-first, installable weather website for precise current conditions and sh
 ## Data architecture
 
 The browser calls Open-Meteo (forecast, geocoding, air quality) and Buienradar directly. KMI's GeoServer does not currently send a browser CORS header, so the Cloudflare Worker reads its public WFS observation layers every ten minutes through a Cron Trigger, stores the snapshot in Workers KV and serves it from `/api/kmi`.
+
+Two more Worker endpoints make the app global. `/api/obs` proxies METAR aviation observations from the NOAA Aviation Weather Center for a bounding box around the requested point, converts them to the KMI observation schema (including deriving relative humidity from the dewpoint), and caches results on a half-degree grid for eight minutes. `/api/nowcast` proxies MET Norway's radar Nowcast 2.0 (which requires an identifying User-Agent that browsers cannot send) and returns 404 outside radar coverage so the client falls back to the model nowcast.
 
 Push notifications also live in the Worker. Subscriptions are stored in the same KV namespace (`push:{id}` where the id is the SHA-256 of the push endpoint). The cron job checks each subscription's location: Buienradar nowcast in coverage, Open-Meteo minutely model elsewhere, and queues a localized message under `pushmsg:{id}` before sending a payload-free, VAPID-signed push "tickle". The service worker then fetches `/api/push/pending` and shows the notification, which avoids Web Push payload encryption entirely. VAPID keys are Worker secrets (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY_JWK`).
 

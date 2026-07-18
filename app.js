@@ -1,6 +1,7 @@
 import {
   isBelgium,
   isBuienradarCoverage,
+  isMetnoCoverage,
   localIsoToEpoch,
   nearestObservation,
   parseBuienradarText,
@@ -44,7 +45,7 @@ const elements = Object.fromEntries([
   "hourly-list", "daily-list", "air-section", "air-values",
   "notif-status", "notif-enable-button", "notif-disable-button", "briefing-select", "briefing-row",
   "language-select", "temperature-select", "wind-select", "precip-select",
-  "forget-button", "buienradar-credit", "kmi-credit"
+  "forget-button", "buienradar-credit", "kmi-credit", "metar-credit", "metno-credit"
 ].map((id) => [id, document.getElementById(id)]));
 
 const PUSH_SUPPORTED = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
@@ -329,21 +330,22 @@ async function loadWeather(location, { moveFocus = false, refresh = false } = {}
 
   try {
     const weatherPromise = fetchOpenMeteo(location, signal);
-    const kmiPromise = isBelgium(location.latitude, location.longitude)
-      ? fetchKmiObservation(location, signal)
-      : Promise.resolve(null);
+    const observationPromise = fetchObservation(location, signal);
     const airPromise = fetchAirQuality(location, signal).catch(() => null);
 
     latestWeather = await weatherPromise;
     currentLocation.timezone = latestWeather.timezone;
 
-    const radarPromise = isBuienradarCoverage(location.latitude, location.longitude)
-      ? fetchBuienradar(location, signal)
-      : Promise.resolve(null);
+    let radarPromise = Promise.resolve(null);
+    if (isBuienradarCoverage(location.latitude, location.longitude)) {
+      radarPromise = fetchBuienradar(location, signal);
+    } else if (isMetnoCoverage(location.latitude, location.longitude)) {
+      radarPromise = fetchMetnoNowcast(location, signal);
+    }
 
     [latestRain, latestObservation, latestAir] = await Promise.all([
       radarPromise.catch(() => null),
-      kmiPromise.catch(() => null),
+      observationPromise.catch(() => null),
       airPromise
     ]);
 
@@ -403,7 +405,42 @@ async function fetchBuienradar(location, signal) {
   if (!response.ok) throw new Error(`Rain radar returned ${response.status}.`);
   const points = parseBuienradarText(await response.text(), Date.now(), latestWeather.utc_offset_seconds);
   if (points.length < 12) throw new Error("Rain radar returned too few intervals.");
-  return { source: "radar", intervalMinutes: 5, points };
+  return { source: "radar", provider: "buienradar", intervalMinutes: 5, points };
+}
+
+async function fetchMetnoNowcast(location, signal) {
+  const response = await fetch(`./api/nowcast?lat=${location.latitude}&lon=${location.longitude}`, { signal });
+  if (!response.ok) throw new Error(`Nowcast returned ${response.status}.`);
+  const data = await response.json();
+  if (!Array.isArray(data.points) || data.points.length < 12) throw new Error("Nowcast returned too few intervals.");
+  return { source: "radar", provider: "metno", intervalMinutes: 5, points: data.points };
+}
+
+async function fetchObservation(location, signal) {
+  if (isBelgium(location.latitude, location.longitude)) {
+    try {
+      const kmi = await fetchKmiObservation(location, signal);
+      if (kmi) return { ...kmi, sourceType: "kmi" };
+    } catch (error) {
+      if (error.name === "AbortError") throw error;
+    }
+  }
+  const metar = await fetchMetarObservation(location, signal);
+  return metar ? { ...metar, sourceType: "metar" } : null;
+}
+
+async function fetchMetarObservation(location, signal) {
+  try {
+    const response = await fetch(`./api/obs?lat=${location.latitude}&lon=${location.longitude}`, { signal });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const observation = nearestObservation(data.observations ?? [], location.latitude, location.longitude, 2);
+    if (!observation || observation.distanceKm > 150) return null;
+    return observation;
+  } catch (error) {
+    if (error.name === "AbortError") throw error;
+    return null;
+  }
 }
 
 async function fetchKmiObservation(location, signal) {
@@ -433,7 +470,7 @@ function modelRainPoints(weather) {
     time: localIsoToEpoch(time, offset),
     mmPerHour: Number(weather.minutely_15.precipitation[index] ?? 0) * 4
   })).filter((point) => point.time >= Date.now() - 10 * 60_000).slice(0, 9);
-  return { source: "model", intervalMinutes: 15, points };
+  return { source: "model", provider: "model", intervalMinutes: 15, points };
 }
 
 function renderAll() {
@@ -542,14 +579,17 @@ function renderCurrentConditions() {
   rows.push([t("value.conditions"), localizedWeatherLabel(lang, current.weather_code)]);
   renderDefinitionList(elements["current-values"], rows);
 
-  elements["kmi-credit"].hidden = !latestObservation;
+  const observationSource = latestObservation?.sourceType ?? null;
+  elements["kmi-credit"].hidden = observationSource !== "kmi";
+  elements["metar-credit"].hidden = observationSource !== "metar";
   if (!latestObservation) {
     elements["measured-observation"].hidden = true;
     return;
   }
 
   const ageMinutes = Math.max(0, Math.round((Date.now() - Date.parse(latestObservation.timestamp)) / 60_000));
-  elements["station-description"].textContent = t("station.description", {
+  const descriptionKey = observationSource === "metar" ? "station.metar.description" : "station.description";
+  elements["station-description"].textContent = t(descriptionKey, {
     name: titleCase(latestObservation.name),
     distance: formatDistance(latestObservation.distanceKm),
     time: formatTime(Date.parse(latestObservation.timestamp)),
@@ -572,7 +612,8 @@ function renderRain() {
   elements["rain-summary"].textContent = `${summary.headline} ${summary.detail}`;
   elements["rain-source-badge"].textContent = t(isRadar ? "rain.badge.radar" : "rain.badge.model");
   elements["rain-detail-intro"].textContent = t(isRadar ? "rain.intro.radar" : "rain.intro.model");
-  elements["buienradar-credit"].hidden = !isRadar;
+  elements["buienradar-credit"].hidden = latestRain.provider !== "buienradar";
+  elements["metno-credit"].hidden = latestRain.provider !== "metno";
 
   elements["rain-visual"].replaceChildren();
   elements["rain-timeline"].replaceChildren();

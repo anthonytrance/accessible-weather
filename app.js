@@ -41,8 +41,8 @@ const elements = Object.fromEntries([
   "summary-comparison", "sun-summary", "weather-age",
   "measured-observation", "station-description", "measured-values", "current-values",
   "rain-summary", "rain-source-badge", "rain-visual", "rain-detail-intro", "rain-timeline",
-  "forecast-short-tab", "forecast-long-tab", "forecast-short-panel", "forecast-long-panel",
-  "hourly-list", "daily-list", "air-section", "air-values",
+  "tab-now", "tab-forecast", "tab-more", "view-now", "view-forecast", "view-more",
+  "forecast-content", "hourly-list", "daily-list", "air-section", "air-values",
   "notif-status", "notif-enable-button", "notif-disable-button", "briefing-select", "briefing-row",
   "language-select", "temperature-select", "wind-select", "precip-select",
   "forget-button", "buienradar-credit", "kmi-credit", "metar-credit", "metno-credit"
@@ -110,10 +110,10 @@ function registerEvents() {
     });
   }
 
-  const forecastTabs = [elements["forecast-short-tab"], elements["forecast-long-tab"]];
-  forecastTabs.forEach((tab) => {
-    tab.addEventListener("click", () => selectForecastTab(tab === forecastTabs[0] ? "short" : "long"));
-    tab.addEventListener("keydown", (event) => handleForecastTabKeydown(event, forecastTabs));
+  const appTabs = [elements["tab-now"], elements["tab-forecast"], elements["tab-more"]];
+  appTabs.forEach((tab) => {
+    tab.addEventListener("click", () => selectView(tab.id));
+    tab.addEventListener("keydown", (event) => handleTabKeydown(event, appTabs));
   });
 }
 
@@ -188,17 +188,22 @@ function syncPreferenceControls() {
   elements["precip-select"].value = settings.precipitationUnit;
 }
 
-function selectForecastTab(range) {
-  const shortSelected = range === "short";
-  elements["forecast-short-tab"].setAttribute("aria-selected", String(shortSelected));
-  elements["forecast-short-tab"].tabIndex = shortSelected ? 0 : -1;
-  elements["forecast-long-tab"].setAttribute("aria-selected", String(!shortSelected));
-  elements["forecast-long-tab"].tabIndex = shortSelected ? -1 : 0;
-  elements["forecast-short-panel"].hidden = !shortSelected;
-  elements["forecast-long-panel"].hidden = shortSelected;
+const VIEW_FOR_TAB = {
+  "tab-now": "view-now",
+  "tab-forecast": "view-forecast",
+  "tab-more": "view-more"
+};
+
+function selectView(tabId) {
+  for (const [tab, view] of Object.entries(VIEW_FOR_TAB)) {
+    const selected = tab === tabId;
+    elements[tab].setAttribute("aria-selected", String(selected));
+    elements[tab].tabIndex = selected ? 0 : -1;
+    elements[view].hidden = !selected;
+  }
 }
 
-function handleForecastTabKeydown(event, tabs) {
+function handleTabKeydown(event, tabs) {
   const currentIndex = tabs.indexOf(event.currentTarget);
   let nextIndex = null;
   if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabs.length;
@@ -354,6 +359,7 @@ async function loadWeather(location, { moveFocus = false, refresh = false } = {}
     persistSettings();
     renderAll();
     elements["weather-content"].hidden = false;
+    elements["forecast-content"].hidden = false;
     elements["refresh-button"].disabled = false;
     announce(`${t("status.loaded", { name: location.name })} ${elements["decision-summary"].textContent}`);
     if (moveFocus) elements["weather-location-heading"].focus();
@@ -592,7 +598,6 @@ function renderCurrentConditions() {
   elements["station-description"].textContent = t(descriptionKey, {
     name: titleCase(latestObservation.name),
     distance: formatDistance(latestObservation.distanceKm),
-    time: formatTime(Date.parse(latestObservation.timestamp)),
     minutes: ageMinutes
   });
   renderDefinitionList(elements["measured-values"], [
@@ -1187,6 +1192,7 @@ function setFormBusy(busy) {
 
 function setWeatherBusy(busy) {
   elements["weather-content"].setAttribute("aria-busy", String(busy));
+  elements["forecast-content"].setAttribute("aria-busy", String(busy));
   elements["refresh-button"].disabled = busy || !latestWeather;
 }
 

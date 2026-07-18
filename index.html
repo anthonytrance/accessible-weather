@@ -22,130 +22,145 @@
         <div>
           <p class="eyebrow" data-i18n="app.eyebrow">Accessible weather</p>
           <h1 data-i18n="app.name">Weather, clearly</h1>
-          <p class="tagline" data-i18n="app.tagline">Precise conditions and rain timing, without relying on a map.</p>
         </div>
         <button id="refresh-button" class="secondary-button" type="button" disabled data-i18n="action.refresh">Refresh weather</button>
       </div>
     </header>
 
+    <nav class="app-tabs-holder">
+      <div class="shell app-tabs" role="tablist" data-i18n-aria="tabs.label" aria-label="Sections">
+        <button id="tab-now" class="app-tab" type="button" role="tab" aria-selected="true" aria-controls="view-now">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4.6"/><line x1="12" y1="19.4" x2="12" y2="22"/><line x1="4.9" y1="4.9" x2="6.8" y2="6.8"/><line x1="17.2" y1="17.2" x2="19.1" y2="19.1"/><line x1="2" y1="12" x2="4.6" y2="12"/><line x1="19.4" y1="12" x2="22" y2="12"/><line x1="4.9" y1="19.1" x2="6.8" y2="17.2"/><line x1="17.2" y1="6.8" x2="19.1" y2="4.9"/></svg>
+          <span data-i18n="tabs.now">Now</span>
+        </button>
+        <button id="tab-forecast" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="view-forecast" tabindex="-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span data-i18n="tabs.forecast">Forecast</span>
+        </button>
+        <button id="tab-more" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="view-more" tabindex="-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+          <span data-i18n="tabs.more">More</span>
+        </button>
+      </div>
+    </nav>
+
     <main id="main-content" class="shell" tabindex="-1">
-      <section class="location-panel" aria-labelledby="location-heading">
-        <h2 id="location-heading" data-i18n="location.heading">Choose a location</h2>
-        <div class="location-actions">
-          <form id="search-form" role="search">
-            <label for="location-search" data-i18n="location.label">Town, postal code or place</label>
-            <div class="search-row">
-              <input id="location-search" name="location" type="search" autocomplete="off" enterkeyhint="search" minlength="2" required>
-              <button class="primary-button" type="submit" data-i18n="action.search">Search</button>
-            </div>
-          </form>
-          <div class="or-divider" aria-hidden="true" data-i18n="location.or">or</div>
-          <button id="gps-button" class="secondary-button" type="button" data-i18n="action.gps">Use my current location</button>
-        </div>
-
-        <div id="search-results" class="search-results" hidden>
-          <h3 id="search-results-heading" tabindex="-1" data-i18n="results.heading">Search results</h3>
-          <ul id="search-results-list" aria-labelledby="search-results-heading"></ul>
-        </div>
-
-        <div id="saved-locations" class="saved-locations" hidden>
-          <h3 data-i18n="saved.heading">Saved locations</h3>
-          <div id="saved-location-buttons" class="button-cluster"></div>
-        </div>
-      </section>
-
       <p id="status" class="status" role="status" aria-live="polite" aria-atomic="true"></p>
       <div id="error" class="error-message" role="alert" hidden></div>
 
-      <div id="weather-content" hidden aria-busy="false">
-        <section class="hero-card" aria-labelledby="weather-location-heading">
-          <div class="hero-heading-row">
-            <div>
-              <p id="location-context" class="eyebrow">Flanders, Belgium</p>
-              <h2 id="weather-location-heading" tabindex="-1">Mechelen</h2>
-            </div>
-            <div class="hero-actions">
-              <span id="hero-icon" class="hero-icon" aria-hidden="true"></span>
-              <button id="save-location-button" class="text-button" type="button" data-i18n="action.save">Save this location</button>
-              <button id="share-button" class="text-button" type="button" data-i18n="action.share">Share this weather</button>
-            </div>
-          </div>
-          <p id="decision-summary" class="decision-summary"></p>
-          <p id="summary-comparison" class="summary-caveat" hidden></p>
-          <p id="sun-summary" class="summary-caveat" hidden></p>
-          <p id="summary-caveat" class="summary-caveat"></p>
-        </section>
-
-        <section class="section-card" aria-labelledby="conditions-heading">
-          <div class="section-heading-row">
-            <h2 id="conditions-heading" data-i18n="conditions.heading">Current conditions</h2>
-            <p id="weather-age" class="data-age"></p>
-          </div>
-
-          <div id="measured-observation" class="observation-block" hidden>
-            <h3 data-i18n="observed.heading">Observed nearby</h3>
-            <p id="station-description" class="source-note"></p>
-            <dl id="measured-values" class="weather-values"></dl>
-          </div>
-
-          <div class="observation-block">
-            <h3 id="model-heading" data-i18n="estimated.heading">Estimated here</h3>
-            <p class="source-note" data-i18n="estimated.note">Calculated for this location, not measured.</p>
-            <dl id="current-values" class="weather-values"></dl>
-          </div>
-        </section>
-
-        <section class="section-card forecast-card" aria-labelledby="forecast-heading">
-          <div class="section-heading-row">
-            <h2 id="forecast-heading" data-i18n="forecast.heading">Forecast</h2>
-            <p class="data-age" data-i18n="forecast.model">Open-Meteo model</p>
-          </div>
-
-          <div class="forecast-tabs" role="tablist" data-i18n-aria="forecast.rangeLabel" aria-label="Forecast range">
-            <button id="forecast-short-tab" class="forecast-tab" type="button" role="tab" aria-selected="true" aria-controls="forecast-short-panel" data-i18n="forecast.short">Next 12 hours</button>
-            <button id="forecast-long-tab" class="forecast-tab" type="button" role="tab" aria-selected="false" aria-controls="forecast-long-panel" tabindex="-1" data-i18n="forecast.long">10-day outlook</button>
-          </div>
-
-          <div id="forecast-short-panel" class="forecast-panel" role="tabpanel" aria-labelledby="forecast-short-tab" tabindex="0">
-            <section class="forecast-block rain-section" aria-labelledby="rain-heading">
-              <div class="section-heading-row">
-                <h3 id="rain-heading" data-i18n="rain.heading">Rain, next two hours</h3>
-                <p id="rain-source-badge" class="source-badge"></p>
+      <section id="view-now" role="tabpanel" aria-labelledby="tab-now" tabindex="0">
+        <section class="location-panel" aria-labelledby="location-heading">
+          <h2 id="location-heading" data-i18n="location.heading">Choose a location</h2>
+          <div class="location-actions">
+            <form id="search-form" role="search">
+              <label for="location-search" data-i18n="location.label">Town, postal code or place</label>
+              <div class="search-row">
+                <input id="location-search" name="location" type="search" autocomplete="off" enterkeyhint="search" minlength="2" required>
+                <button class="primary-button" type="submit" data-i18n="action.search">Search</button>
               </div>
-              <p id="rain-summary" class="section-summary"></p>
-              <div id="rain-visual" class="rain-visual" aria-hidden="true"></div>
-              <details id="rain-details">
-                <summary data-i18n="rain.detailsToggle">Detailed rain timeline</summary>
-                <p id="rain-detail-intro" class="source-note"></p>
-                <ol id="rain-timeline" class="timeline"></ol>
-              </details>
-            </section>
-
-            <section class="forecast-block" aria-labelledby="hourly-heading">
-              <h3 id="hourly-heading" data-i18n="hourly.heading">Hour by hour</h3>
-              <ol id="hourly-list" class="forecast-point-list"></ol>
-            </section>
+            </form>
+            <div class="or-divider" aria-hidden="true" data-i18n="location.or">or</div>
+            <button id="gps-button" class="secondary-button" type="button" data-i18n="action.gps">Use my current location</button>
           </div>
 
-          <div id="forecast-long-panel" class="forecast-panel" role="tabpanel" aria-labelledby="forecast-long-tab" tabindex="0" hidden>
-            <p class="source-note" data-i18n="forecast.longNote">Useful for planning. Exact details become less certain further ahead.</p>
-            <ol id="daily-list" class="daily-list forecast-point-list" data-i18n-aria="daily.listLabel" aria-label="Ten-day forecast"></ol>
+          <div id="search-results" class="search-results" hidden>
+            <h3 id="search-results-heading" tabindex="-1" data-i18n="results.heading">Search results</h3>
+            <ul id="search-results-list" aria-labelledby="search-results-heading"></ul>
+          </div>
+
+          <div id="saved-locations" class="saved-locations" hidden>
+            <h3 data-i18n="saved.heading">Saved locations</h3>
+            <div id="saved-location-buttons" class="button-cluster"></div>
           </div>
         </section>
 
-        <details id="air-section" class="section-card collapsible" hidden>
-          <summary>
+        <div id="weather-content" hidden aria-busy="false">
+          <section class="hero-card" aria-labelledby="weather-location-heading">
+            <div class="hero-heading-row">
+              <div>
+                <p id="location-context" class="eyebrow">Flanders, Belgium</p>
+                <h2 id="weather-location-heading" tabindex="-1">Mechelen</h2>
+              </div>
+              <div class="hero-actions">
+                <span id="hero-icon" class="hero-icon" aria-hidden="true"></span>
+                <button id="save-location-button" class="text-button" type="button" data-i18n="action.save">Save this location</button>
+                <button id="share-button" class="text-button" type="button" data-i18n="action.share">Share this weather</button>
+              </div>
+            </div>
+            <p id="decision-summary" class="decision-summary"></p>
+            <p id="summary-comparison" class="summary-caveat" hidden></p>
+            <p id="sun-summary" class="summary-caveat" hidden></p>
+            <p id="summary-caveat" class="summary-caveat"></p>
+          </section>
+
+          <section class="section-card rain-section" aria-labelledby="rain-heading">
+            <div class="section-heading-row">
+              <h2 id="rain-heading" data-i18n="rain.heading">Rain, next two hours</h2>
+              <p id="rain-source-badge" class="source-badge"></p>
+            </div>
+            <p id="rain-summary" class="section-summary"></p>
+            <div id="rain-visual" class="rain-visual" aria-hidden="true"></div>
+            <details id="rain-details">
+              <summary data-i18n="rain.detailsToggle">Detailed rain timeline</summary>
+              <p id="rain-detail-intro" class="source-note"></p>
+              <ol id="rain-timeline" class="timeline"></ol>
+            </details>
+          </section>
+
+          <section class="section-card" aria-labelledby="conditions-heading">
+            <div class="section-heading-row">
+              <h2 id="conditions-heading" data-i18n="conditions.heading">Current conditions</h2>
+              <p id="weather-age" class="data-age"></p>
+            </div>
+
+            <div id="measured-observation" class="observation-block" hidden>
+              <h3 data-i18n="observed.heading">Observed nearby</h3>
+              <p id="station-description" class="source-note"></p>
+              <dl id="measured-values" class="weather-values"></dl>
+            </div>
+
+            <div class="observation-block">
+              <h3 id="model-heading" data-i18n="estimated.heading">Estimated here</h3>
+              <p class="source-note" data-i18n="estimated.note">Calculated for this location, not measured.</p>
+              <dl id="current-values" class="weather-values"></dl>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="view-forecast" role="tabpanel" aria-labelledby="tab-forecast" tabindex="0" hidden>
+        <div id="forecast-content" hidden aria-busy="false">
+          <section class="section-card" aria-labelledby="hourly-heading">
+            <div class="section-heading-row">
+              <h2 id="hourly-heading" data-i18n="hourly.heading">Hour by hour</h2>
+              <p class="data-age" data-i18n="forecast.model">Open-Meteo model</p>
+            </div>
+            <ol id="hourly-list" class="forecast-point-list"></ol>
+          </section>
+
+          <section class="section-card" aria-labelledby="daily-heading">
+            <div class="section-heading-row">
+              <h2 id="daily-heading" data-i18n="forecast.long">16-day outlook</h2>
+              <p class="data-age" data-i18n="forecast.model">Open-Meteo model</p>
+            </div>
+            <p class="source-note" data-i18n="forecast.longNote">Useful for planning. Exact details become less certain further ahead.</p>
+            <ol id="daily-list" class="daily-list forecast-point-list" data-i18n-aria="daily.listLabel" aria-label="Sixteen-day forecast"></ol>
+          </section>
+        </div>
+      </section>
+
+      <section id="view-more" role="tabpanel" aria-labelledby="tab-more" tabindex="0" hidden>
+        <section id="air-section" class="section-card" aria-labelledby="air-heading" hidden>
+          <div class="section-heading-row">
             <h2 id="air-heading" data-i18n="air.heading">Air quality and pollen</h2>
-          </summary>
-          <p class="data-age" data-i18n="air.note">Latest modelled values for this location.</p>
+            <p class="data-age" data-i18n="air.note">Latest modelled values for this location.</p>
+          </div>
           <dl id="air-values" class="weather-values"></dl>
           <p class="source-note" data-i18n="air.pollenNote">Pollen values are grains per cubic metre and are available in Europe only.</p>
-        </details>
+        </section>
 
-        <details class="section-card collapsible">
-          <summary>
-            <h2 id="notif-heading" data-i18n="notif.heading">Notifications</h2>
-          </summary>
+        <section class="section-card" aria-labelledby="notif-heading">
+          <h2 id="notif-heading" data-i18n="notif.heading">Notifications</h2>
           <p class="source-note" data-i18n="notif.intro">Get a push notification shortly before rain starts, and an optional daily briefing. Alerts follow one chosen place.</p>
           <p id="notif-status" class="section-summary notif-status"></p>
           <div class="button-cluster">
@@ -156,12 +171,10 @@
             <label for="briefing-select" data-i18n="notif.briefingLabel">Daily briefing</label>
             <select id="briefing-select"></select>
           </div>
-        </details>
+        </section>
 
-        <details class="section-card compact-card collapsible">
-          <summary>
-            <h2 id="settings-heading" data-i18n="settings.heading">Preferences and data</h2>
-          </summary>
+        <section class="section-card compact-card" aria-labelledby="settings-heading">
+          <h2 id="settings-heading" data-i18n="settings.heading">Preferences and data</h2>
           <div class="preference-grid">
             <div class="preference-row">
               <label for="language-select" data-i18n="settings.language">Language</label>
@@ -193,12 +206,10 @@
           </div>
           <button id="forget-button" class="secondary-button" type="button" data-i18n="action.forget">Forget saved locations and preferences</button>
           <p class="privacy-note" data-i18n="privacy.note">Locations and preferences are stored only in this browser. When weather is requested, the selected coordinates are sent to the named weather providers. If notifications are enabled, the chosen alert location and language are stored on the notification server. There is no account and no profile.</p>
-        </details>
+        </section>
 
-        <details class="sources collapsible">
-          <summary>
-            <h2 id="sources-heading" data-i18n="sources.heading">Sources</h2>
-          </summary>
+        <section class="sources" aria-labelledby="sources-heading">
+          <h2 id="sources-heading" data-i18n="sources.heading">Sources</h2>
           <ul>
             <li><a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a><span data-i18n="sources.openMeteo">: weather forecast using automatically selected high-resolution models.</span></li>
             <li id="buienradar-credit" hidden><a href="https://www.buienradar.nl/" target="_blank" rel="noreferrer">Buienradar.nl</a><span data-i18n="sources.buienradar">: two-hour rain nowcast.</span></li>
@@ -208,15 +219,10 @@
             <li><a href="https://open-meteo.com/en/docs/air-quality-api" target="_blank" rel="noreferrer">Open-Meteo Air Quality</a><span data-i18n="sources.airQuality">: air quality and pollen (CAMS).</span></li>
             <li data-i18n="sources.geonames">Location search data by GeoNames through Open-Meteo.</li>
           </ul>
-        </details>
-      </div>
+          <p class="privacy-note" data-i18n="footer.warning">Weather can change quickly. Use official warnings for safety-critical decisions.</p>
+        </section>
+      </section>
     </main>
-
-    <footer class="site-footer">
-      <div class="shell">
-        <p data-i18n="footer.warning">Weather can change quickly. Use official warnings for safety-critical decisions.</p>
-      </div>
-    </footer>
 
     <script type="module" src="./app.js"></script>
   </body>

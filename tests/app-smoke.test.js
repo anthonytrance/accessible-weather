@@ -34,7 +34,7 @@ test("the app loads Mechelen weather and renders its decision-first interface", 
     await waitFor(() => !document.getElementById("weather-content").hidden);
 
     assert.equal(document.getElementById("weather-location-heading").textContent, "Mechelen");
-    assert.match(document.getElementById("decision-summary").textContent, /Nearby measurement 23\.6°C/);
+    assert.match(document.getElementById("decision-summary").textContent, /Measured nearby 23\.6°C/);
     assert.equal(document.getElementById("measured-observation").hidden, false);
     assert.match(document.getElementById("station-description").textContent, /Sint-Katelijne-Waver/);
 
@@ -53,14 +53,20 @@ test("the app loads Mechelen weather and renders its decision-first interface", 
 
     assert.match(document.getElementById("notif-status").textContent, /push notifications/i);
 
-    const longTab = document.getElementById("forecast-long-tab");
-    longTab.click();
-    assert.equal(longTab.getAttribute("aria-selected"), "true");
-    assert.equal(document.getElementById("forecast-short-panel").hidden, true);
-    assert.equal(document.getElementById("forecast-long-panel").hidden, false);
+    const forecastTab = document.getElementById("tab-forecast");
+    forecastTab.click();
+    assert.equal(forecastTab.getAttribute("aria-selected"), "true");
+    assert.equal(document.getElementById("view-now").hidden, true);
+    assert.equal(document.getElementById("view-forecast").hidden, false);
+    assert.equal(document.getElementById("forecast-content").hidden, false);
 
-    longTab.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
-    assert.equal(document.getElementById("forecast-short-tab").getAttribute("aria-selected"), "true");
+    forecastTab.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    assert.equal(document.getElementById("tab-now").getAttribute("aria-selected"), "true");
+    assert.equal(document.getElementById("view-now").hidden, false);
+
+    document.getElementById("tab-more").click();
+    assert.equal(document.getElementById("view-more").hidden, false);
+    assert.equal(document.getElementById("air-section").hidden, false);
   } finally {
     globalThis.window = original.window;
     globalThis.document = original.document;

@@ -398,45 +398,6 @@ summary {
   padding: 0.3rem 0 0.55rem 0.4rem;
 }
 
-.forecast-tabs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.35rem;
-  max-width: 32rem;
-  padding: 0.35rem;
-  border: 1px solid var(--border);
-  border-radius: 0.8rem;
-  background: var(--surface-soft);
-}
-
-.forecast-tab {
-  border-color: transparent;
-  background: transparent;
-  color: var(--ink);
-}
-
-.forecast-tab[aria-selected="true"] {
-  background: var(--accent-dark);
-  color: white;
-  box-shadow: 0 2px 8px rgb(16 42 67 / 18%);
-}
-
-.forecast-panel {
-  margin-top: 1.25rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--border);
-}
-
-.forecast-block + .forecast-block {
-  margin-top: 1.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--border);
-}
-
-.forecast-block h3 {
-  margin-bottom: 0.65rem;
-}
-
 .forecast-point-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -548,28 +509,6 @@ summary {
   max-width: 22rem;
 }
 
-.collapsible > summary {
-  min-height: 2.75rem;
-  cursor: pointer;
-}
-
-.collapsible > summary h2 {
-  display: inline;
-  margin: 0;
-  font-size: clamp(1.2rem, 3.5vw, 1.5rem);
-  color: inherit;
-}
-
-.collapsible[open] > summary {
-  margin-bottom: 1rem;
-}
-
-.sources.collapsible > summary {
-  padding: 0.25rem 0;
-  color: inherit;
-  font-weight: 800;
-}
-
 .privacy-note {
   max-width: 55rem;
   margin: 1rem 0 0;
@@ -595,6 +534,41 @@ summary {
 
 [hidden] {
   display: none !important;
+}
+
+.app-tabs-holder {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.app-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  padding: 0.4rem 0;
+}
+
+.app-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 3rem;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.app-tab svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  flex-shrink: 0;
+}
+
+.app-tab[aria-selected="true"] {
+  background: var(--surface-soft);
+  color: var(--accent-dark);
 }
 
 @media (max-width: 44rem) {
@@ -644,6 +618,39 @@ summary {
 
   .weather-values {
     gap: 0.5rem;
+  }
+
+  body {
+    padding-bottom: calc(4.6rem + env(safe-area-inset-bottom));
+  }
+
+  .app-tabs-holder {
+    position: fixed;
+    z-index: 50;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 0;
+    background: var(--surface);
+    box-shadow: 0 -4px 16px rgb(16 42 67 / 12%);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .app-tab {
+    flex-direction: column;
+    gap: 0.15rem;
+    min-height: 3.4rem;
+    font-size: 0.78rem;
+  }
+
+  .app-tab svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .app-tab[aria-selected="true"] {
+    background: transparent;
   }
 }
 
@@ -697,9 +704,12 @@ summary {
     background: #1d506a;
   }
 
-  .forecast-tab[aria-selected="true"] {
-    background: var(--accent-dark);
-    color: #071b29;
+  .app-tab[aria-selected="true"] {
+    color: var(--accent-dark);
+  }
+
+  .app-tabs-holder {
+    background: var(--surface);
   }
 
   .wx-icon[data-icon="clear-day"],

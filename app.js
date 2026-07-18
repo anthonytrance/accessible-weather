@@ -1,6 +1,7 @@
 import {
   isBelgium,
   isBuienradarCoverage,
+  isDwdCoverage,
   isMetnoCoverage,
   localIsoToEpoch,
   nearestObservation,
@@ -61,7 +62,7 @@ const elements = Object.fromEntries([
   "moon-card", "moon-body",
   "notif-heading", "notif-status", "notif-enable-button", "notif-disable-button", "briefing-select", "briefing-row",
   "language-select", "temperature-select", "wind-select", "precip-select",
-  "forget-button", "buienradar-credit", "kmi-credit", "metar-credit", "metno-credit"
+  "forget-button", "buienradar-credit", "kmi-credit", "metar-credit", "metno-credit", "dwd-credit"
 ].map((id) => [id, document.getElementById(id)]));
 
 const PUSH_SUPPORTED = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
@@ -435,8 +436,8 @@ async function loadWeather(location, { moveFocus = false, refresh = false } = {}
     let radarPromise = Promise.resolve(null);
     if (isBuienradarCoverage(location.latitude, location.longitude)) {
       radarPromise = fetchBuienradar(location, signal);
-    } else if (isMetnoCoverage(location.latitude, location.longitude)) {
-      radarPromise = fetchMetnoNowcast(location, signal);
+    } else if (isMetnoCoverage(location.latitude, location.longitude) || isDwdCoverage(location.latitude, location.longitude)) {
+      radarPromise = fetchProxiedNowcast(location, signal);
     }
 
     [latestRain, latestObservation, latestAir] = await Promise.all([
@@ -713,12 +714,12 @@ async function fetchBuienradar(location, signal) {
   return { source: "radar", provider: "buienradar", intervalMinutes: 5, points };
 }
 
-async function fetchMetnoNowcast(location, signal) {
+async function fetchProxiedNowcast(location, signal) {
   const response = await fetch(`./api/nowcast?lat=${location.latitude}&lon=${location.longitude}`, { signal });
   if (!response.ok) throw new Error(`Nowcast returned ${response.status}.`);
   const data = await response.json();
   if (!Array.isArray(data.points) || data.points.length < 12) throw new Error("Nowcast returned too few intervals.");
-  return { source: "radar", provider: "metno", intervalMinutes: 5, points: data.points };
+  return { source: "radar", provider: data.provider === "dwd" ? "dwd" : "metno", intervalMinutes: 5, points: data.points };
 }
 
 async function fetchObservation(location, signal) {
@@ -921,6 +922,7 @@ function renderRain() {
   elements["rain-detail-intro"].textContent = t(isRadar ? "rain.intro.radar" : "rain.intro.model");
   elements["buienradar-credit"].hidden = latestRain.provider !== "buienradar";
   elements["metno-credit"].hidden = latestRain.provider !== "metno";
+  elements["dwd-credit"].hidden = latestRain.provider !== "dwd";
 
   elements["rain-visual"].replaceChildren();
   elements["rain-timeline"].replaceChildren();

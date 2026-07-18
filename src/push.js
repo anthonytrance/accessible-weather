@@ -1,5 +1,5 @@
-import { isBuienradarCoverage, isMetnoCoverage, parseBuienradarText, summarizeRain } from "../weather-utils.js";
-import { metnoToPoints } from "./nowcast.js";
+import { isBuienradarCoverage, isDwdCoverage, isMetnoCoverage, parseBuienradarText, summarizeRain } from "../weather-utils.js";
+import { brightskyToPoints, metnoToPoints } from "./nowcast.js";
 import { formatRainSummary, isSupportedLanguage, localizedWeatherLabel, translate } from "../i18n.js";
 
 const RAIN_LEAD_MINUTES = 30;
@@ -261,6 +261,26 @@ async function fetchRainPoints(location) {
       });
       if (response.ok) {
         const points = metnoToPoints(await response.json());
+        if (points && points.length >= 12) return { source: "radar", points };
+      }
+    } catch {
+      // Fall through to the model nowcast below.
+    }
+  } else if (isDwdCoverage(location.latitude, location.longitude)) {
+    // Same DWD radar source the app uses for Germany and surroundings.
+    try {
+      const url = new URL("https://api.brightsky.dev/radar");
+      url.search = new URLSearchParams({
+        lat: String(location.latitude),
+        lon: String(location.longitude),
+        distance: "0",
+        format: "plain"
+      });
+      const response = await fetch(url, {
+        headers: { "user-agent": "accessible-weather (contact@xijaroandpitch.com)" }
+      });
+      if (response.ok) {
+        const points = brightskyToPoints(await response.json());
         if (points && points.length >= 12) return { source: "radar", points };
       }
     } catch {

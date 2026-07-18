@@ -139,6 +139,13 @@ export function isMetnoCoverage(latitude, longitude) {
   return latitude >= 54 && latitude <= 72.5 && longitude >= -1 && longitude <= 33;
 }
 
+// Conservative box around Germany proper for the DWD RV radar composite via
+// Bright Sky. The composite grid extends further, but pixels beyond real
+// radar reach read as a permanent zero, so we stay well inside.
+export function isDwdCoverage(latitude, longitude) {
+  return latitude >= 47 && latitude <= 55.2 && longitude >= 5.5 && longitude <= 15.3;
+}
+
 export function isBelgium(latitude, longitude) {
   return latitude >= 49.45 && latitude <= 51.55 && longitude >= 2.45 && longitude <= 6.45;
 }

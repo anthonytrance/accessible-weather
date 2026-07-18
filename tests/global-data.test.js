@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { metarToObservation, relativeHumidityFromDewpoint, serveObservations } from "../src/obs.js";
-import { metnoToPoints, serveNowcast } from "../src/nowcast.js";
-import { isMetnoCoverage } from "../weather-utils.js";
+import { brightskyToPoints, metnoToPoints, serveNowcast } from "../src/nowcast.js";
+import { isDwdCoverage, isMetnoCoverage } from "../weather-utils.js";
 
 const SAMPLE_METAR = {
   icaoId: "EBAW",
@@ -98,4 +98,26 @@ test("the nowcast endpoint reports 404 outside radar coverage", async () => {
 test("the Nordic coverage box includes Oslo but not Brussels", () => {
   assert.equal(isMetnoCoverage(59.91, 10.75), true);
   assert.equal(isMetnoCoverage(50.85, 4.35), false);
+});
+
+test("Bright Sky DWD radar frames convert to rain points", () => {
+  const now = Date.parse("2026-07-18T19:00:00Z");
+  const payload = {
+    radar: Array.from({ length: 15 }, (_, index) => ({
+      timestamp: new Date(now + index * 300_000).toISOString(),
+      // 0.01 mm per 5 minutes: a value of 45 equals 5.4 mm/h.
+      precipitation_5: [[index === 2 ? 45 : 0]]
+    }))
+  };
+  const points = brightskyToPoints(payload, now);
+  assert.equal(points.length, 15);
+  assert.ok(Math.abs(points[2].mmPerHour - 5.4) < 0.001);
+  assert.equal(points[0].mmPerHour, 0);
+  assert.equal(brightskyToPoints({}, now), null);
+});
+
+test("the DWD coverage box includes Cologne but not Brussels or Paris", () => {
+  assert.equal(isDwdCoverage(50.94, 6.96), true);
+  assert.equal(isDwdCoverage(50.85, 4.35), false);
+  assert.equal(isDwdCoverage(48.85, 2.35), false);
 });

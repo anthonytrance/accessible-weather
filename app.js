@@ -82,6 +82,8 @@ let analysisRequestController = null;
 let activeViewTab = "tab-now";
 const viewScrollPositions = { "tab-now": 0, "tab-forecast": 0, "tab-deep": 0, "tab-more": 0 };
 const climateCache = new Map();
+const CLIMATE_STORAGE_KEY = "weather-clearly.climate.v1";
+const CLIMATE_STORAGE_LIMIT = 20;
 let dailyExpanded = false;
 let lastLoadedAt = 0;
 const STALE_AFTER_MS = 5 * 60_000;
@@ -624,6 +626,11 @@ async function fetchModelAnalysis(location, signal) {
 async function fetchClimateAnalysis(location, targetMonthDay, endYear, signal) {
   const cacheKey = `${analysisLocationKey(location)}:${targetMonthDay}:${endYear}`;
   if (climateCache.has(cacheKey)) return climateCache.get(cacheKey);
+  const persisted = readPersistedClimate(cacheKey);
+  if (persisted) {
+    climateCache.set(cacheKey, persisted);
+    return persisted;
+  }
 
   const url = new URL("https://archive-api.open-meteo.com/v1/archive");
   url.search = new URLSearchParams({
@@ -637,8 +644,34 @@ async function fetchClimateAnalysis(location, targetMonthDay, endYear, signal) {
   });
   const payload = await fetchAnalysisJson(url, signal, "Climate history");
   const result = computeClimate(payload, targetMonthDay);
-  if (result) climateCache.set(cacheKey, result);
+  if (result) {
+    climateCache.set(cacheKey, result);
+    persistClimate(cacheKey, result);
+  }
   return result;
+}
+
+// The archive download is around a megabyte; the computed summary is a few
+// numbers, so it is worth keeping across page loads.
+function readPersistedClimate(cacheKey) {
+  try {
+    const store = JSON.parse(localStorage.getItem(CLIMATE_STORAGE_KEY)) ?? {};
+    return store[cacheKey]?.value ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function persistClimate(cacheKey, value) {
+  try {
+    const store = JSON.parse(localStorage.getItem(CLIMATE_STORAGE_KEY)) ?? {};
+    store[cacheKey] = { value, at: Date.now() };
+    const keys = Object.keys(store).sort((a, b) => (store[a].at ?? 0) - (store[b].at ?? 0));
+    while (keys.length > CLIMATE_STORAGE_LIMIT) delete store[keys.shift()];
+    localStorage.setItem(CLIMATE_STORAGE_KEY, JSON.stringify(store));
+  } catch {
+    // Private browsing may block storage; the in-memory cache still applies.
+  }
 }
 
 async function fetchAtmosphereAnalysis(location, targetLocalTime, signal) {
@@ -1328,6 +1361,8 @@ async function shareWeather() {
 
 function forgetSettings() {
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(CLIMATE_STORAGE_KEY);
+  climateCache.clear();
   settings = defaultSettings();
   applyLanguage();
   syncPreferenceControls();

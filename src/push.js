@@ -214,8 +214,12 @@ function timeFormatter(lang, timezone) {
   }).format(epoch);
 }
 
+function toFiniteNumber(value) {
+  return value == null || value === "" ? Number.NaN : Number(value);
+}
+
 function formatTemperature(lang, units, celsius) {
-  if (!Number.isFinite(Number(celsius))) return translate(lang, "value.notReported");
+  if (!Number.isFinite(toFiniteNumber(celsius))) return translate(lang, "value.notReported");
   const fahrenheit = units?.temperatureUnit === "fahrenheit";
   const value = fahrenheit ? Number(celsius) * 9 / 5 + 32 : Number(celsius);
   const formatted = new Intl.NumberFormat(lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value);
@@ -223,7 +227,7 @@ function formatTemperature(lang, units, celsius) {
 }
 
 function formatWind(lang, units, kmh) {
-  if (!Number.isFinite(Number(kmh))) return translate(lang, "value.notReported");
+  if (!Number.isFinite(toFiniteNumber(kmh))) return translate(lang, "value.notReported");
   const value = Number(kmh);
   switch (units?.windUnit) {
     case "mph": return `${Math.round(value * 0.621371)} mph`;

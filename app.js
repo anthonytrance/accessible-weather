@@ -510,7 +510,7 @@ function renderDecisionSummary() {
   const current = latestWeather.current;
   const rain = formatRainSummary(lang, summarizeRain(latestRain.points, { nowEpoch: Date.now() }), formatTime, latestRain.source);
   const measuredTemperature = latestObservation?.temperatureC;
-  const temperatureSummary = Number.isFinite(Number(measuredTemperature))
+  const temperatureSummary = Number.isFinite(toFiniteNumber(measuredTemperature))
     ? t("summary.measured", { measured: formatTemperature(measuredTemperature), feels: formatTemperature(current.apparent_temperature) })
     : t("summary.estimated", { temp: formatTemperature(current.temperature_2m), feels: formatTemperature(current.apparent_temperature) });
   elements["decision-summary"].textContent = `${temperatureSummary} ${rain.headline}`;
@@ -525,8 +525,8 @@ function renderYesterdayComparison() {
   target.hidden = true;
   const index = currentHourIndex();
   if (index < 24) return;
-  const yesterday = Number(latestWeather.hourly.temperature_2m[index - 24]);
-  const now = Number(latestWeather.current.temperature_2m);
+  const yesterday = toFiniteNumber(latestWeather.hourly.temperature_2m[index - 24]);
+  const now = toFiniteNumber(latestWeather.current.temperature_2m);
   if (!Number.isFinite(yesterday) || !Number.isFinite(now)) return;
   const delta = now - yesterday;
   let sentence;
@@ -573,7 +573,7 @@ function renderCurrentConditions() {
     [t("value.pressure"), `${formatNumber(current.pressure_msl, 0)} hPa`],
     [t("value.cloudCover"), `${formatNumber(current.cloud_cover, 0)}%`]
   ];
-  if (Number.isFinite(Number(uvNow))) {
+  if (Number.isFinite(toFiniteNumber(uvNow))) {
     rows.push([t("value.uvNow"), t("uv.display", { value: formatNumber(uvNow, 1), rating: t(uvRatingKey(Number(uvNow))) })]);
   }
   rows.push([t("value.conditions"), localizedWeatherLabel(lang, current.weather_code)]);
@@ -668,6 +668,7 @@ function renderDaily() {
   const daily = latestWeather.daily;
   daily.time.forEach((date, index) => {
     if (date < today) return;
+    if (!Number.isFinite(toFiniteNumber(daily.temperature_2m_max[index]))) return;
     const item = document.createElement("li");
     let day;
     if (date === today) day = t("daily.today");
@@ -682,7 +683,7 @@ function renderDaily() {
       low: formatTemperature(daily.temperature_2m_min[index]),
       chance: formatNumber(daily.precipitation_probability_max[index] ?? 0, 0),
       amount: formatPrecipitation(daily.precipitation_sum[index] ?? 0),
-      uv: Number.isFinite(Number(uvValue))
+      uv: Number.isFinite(toFiniteNumber(uvValue))
         ? t("uv.display", { value: formatNumber(uvValue, 1), rating: t(uvRatingKey(Number(uvValue))) })
         : t("value.notReported"),
       sunrise: formatTime(localIsoToEpoch(daily.sunrise[index], offset)),
@@ -716,8 +717,8 @@ function renderAirQuality() {
   }
 
   const rows = [];
-  const euAqi = Number(current.european_aqi);
-  const usAqi = Number(current.us_aqi);
+  const euAqi = toFiniteNumber(current.european_aqi);
+  const usAqi = toFiniteNumber(current.us_aqi);
   if (Number.isFinite(euAqi)) {
     rows.push([t("air.aqiEuropean"), t("air.display", { value: formatNumber(euAqi, 0), rating: t(europeanAqiRatingKey(euAqi)) })]);
   } else if (Number.isFinite(usAqi)) {
@@ -730,7 +731,7 @@ function renderAirQuality() {
     ["air.no2", current.nitrogen_dioxide]
   ];
   for (const [key, value] of pollutants) {
-    if (Number.isFinite(Number(value))) rows.push([t(key), `${formatNumber(value, 0)} µg/m³`]);
+    if (Number.isFinite(toFiniteNumber(value))) rows.push([t(key), `${formatNumber(value, 0)} µg/m³`]);
   }
   const pollens = [
     ["air.pollen.alder", current.alder_pollen],
@@ -741,7 +742,7 @@ function renderAirQuality() {
     ["air.pollen.ragweed", current.ragweed_pollen]
   ];
   for (const [key, value] of pollens) {
-    if (Number.isFinite(Number(value))) rows.push([t(key), `${formatNumber(value, 0)} gr/m³`]);
+    if (Number.isFinite(toFiniteNumber(value))) rows.push([t(key), `${formatNumber(value, 0)} gr/m³`]);
   }
 
   if (!rows.length) {
@@ -1054,6 +1055,12 @@ function urlBase64ToUint8Array(base64String) {
 
 // --- Formatting --------------------------------------------------------------
 
+// Number(null) is 0, so missing values need an explicit null check before
+// any "is this finite" test, or nulls render as zeroes.
+function toFiniteNumber(value) {
+  return value == null || value === "" ? Number.NaN : Number(value);
+}
+
 function formatNumber(value, digits) {
   return new Intl.NumberFormat(locale, {
     minimumFractionDigits: digits,
@@ -1062,7 +1069,7 @@ function formatNumber(value, digits) {
 }
 
 function formatTemperature(celsius) {
-  if (!Number.isFinite(Number(celsius))) return t("value.notReported");
+  if (!Number.isFinite(toFiniteNumber(celsius))) return t("value.notReported");
   if (settings.temperatureUnit === "fahrenheit") return `${formatNumber(Number(celsius) * 9 / 5 + 32, 1)}°F`;
   return `${formatNumber(Number(celsius), 1)}°C`;
 }
@@ -1074,7 +1081,7 @@ function formatTemperatureDelta(deltaCelsius) {
 }
 
 function formatSpeed(kmh) {
-  if (!Number.isFinite(Number(kmh))) return t("value.notReported");
+  if (!Number.isFinite(toFiniteNumber(kmh))) return t("value.notReported");
   const value = Number(kmh);
   switch (settings.windUnit) {
     case "mph": return `${formatNumber(value * 0.621371, 0)} mph`;
@@ -1088,7 +1095,7 @@ function formatSpeed(kmh) {
 }
 
 function formatWindWithDirection(kmh, degrees) {
-  if (!Number.isFinite(Number(kmh))) return t("value.notReported");
+  if (!Number.isFinite(toFiniteNumber(kmh))) return t("value.notReported");
   const direction = localizedCompass(lang, degrees);
   if (settings.windUnit === "bft") {
     return t("wind.from", { speed: formatSpeed(kmh), direction });
@@ -1106,7 +1113,7 @@ function formatDistance(km) {
 }
 
 function formatPrecipitation(mm) {
-  if (!Number.isFinite(Number(mm))) return t("value.notReported");
+  if (!Number.isFinite(toFiniteNumber(mm))) return t("value.notReported");
   if (settings.precipitationUnit === "inch") return `${formatNumber(Number(mm) / 25.4, 2)} in`;
   return `${formatNumber(Number(mm), Number(mm) < 10 ? 1 : 0)} mm`;
 }
@@ -1117,7 +1124,7 @@ function formatIntensity(mmPerHour) {
 }
 
 function formatDuration(seconds) {
-  if (!Number.isFinite(Number(seconds))) return null;
+  if (!Number.isFinite(toFiniteNumber(seconds))) return null;
   const total = Math.round(Number(seconds) / 60);
   return t("duration.hoursMinutes", { hours: Math.floor(total / 60), minutes: total % 60 });
 }
@@ -1136,7 +1143,7 @@ function formatDay(dateString) {
 }
 
 function formatOptional(value, formatter) {
-  if (!Number.isFinite(Number(value))) return t("value.notReported");
+  if (!Number.isFinite(toFiniteNumber(value))) return t("value.notReported");
   return formatter(Number(value));
 }
 

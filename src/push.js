@@ -1,4 +1,5 @@
-import { isBuienradarCoverage, parseBuienradarText, summarizeRain } from "../weather-utils.js";
+import { isBuienradarCoverage, isMetnoCoverage, parseBuienradarText, summarizeRain } from "../weather-utils.js";
+import { metnoToPoints } from "./nowcast.js";
 import { formatRainSummary, isSupportedLanguage, localizedWeatherLabel, translate } from "../i18n.js";
 
 const RAIN_LEAD_MINUTES = 30;
@@ -246,6 +247,21 @@ async function fetchRainPoints(location) {
         const offsetSeconds = timezoneOffsetMs("Europe/Amsterdam") / 1000;
         const points = parseBuienradarText(await response.text(), Date.now(), offsetSeconds);
         if (points.length >= 12) return { source: "radar", points };
+      }
+    } catch {
+      // Fall through to the model nowcast below.
+    }
+  } else if (isMetnoCoverage(location.latitude, location.longitude)) {
+    // Same radar source the app uses for the Nordic region.
+    try {
+      const url = new URL("https://api.met.no/weatherapi/nowcast/2.0/complete");
+      url.search = new URLSearchParams({ lat: String(location.latitude), lon: String(location.longitude) });
+      const response = await fetch(url, {
+        headers: { "user-agent": "accessible-weather (contact@xijaroandpitch.com)" }
+      });
+      if (response.ok) {
+        const points = metnoToPoints(await response.json());
+        if (points && points.length >= 12) return { source: "radar", points };
       }
     } catch {
       // Fall through to the model nowcast below.

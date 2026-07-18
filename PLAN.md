@@ -55,6 +55,13 @@ Anthony's brief: don't just add decimals. Look at everything, make it genuinely 
 - Anthony approved tabs over collapsibles. Three views: Now (location + hero + rain + conditions), Forecast (hourly + 16-day stacked, inner sub-tabs removed), More (air, notifications, preferences, sources). One tablist renders as a fixed bottom bar on phones, segmented top bar on desktop. Collapsibles removed again.
 - Same session fixed: null API values rendering as 0° (Number(null)===0 across all formatters, trailing empty forecast days now trimmed), clearer iOS location-permission error, wording coherence pass ("Updated {time}" not "Model time", terser hero/station sentences).
 
+## Fix pass, 2026-07-19 (LANDED, deployed, commit af498e6)
+
+- Briefing-hour bug (reported by Anthony: set 9, fired 8): formatHourLabel built labels from Date.UTC formatted in the browser zone, shifting labels by the UTC offset. Now a local Date. Worker localHour uses hourCycle h23. Anthony's KV subscription patched 8→9, but his localStorage still says 8: he must re-pick "Around 09:00" once, otherwise any later unit change re-posts 8.
+- Stale-data bug: app now auto-reloads on visibilitychange/pageshow when data >5 min old, re-renders relative wording otherwise.
+- Tabs verdict: three tabs stay; air quality moved to Now (it is weather, not settings); third tab renamed Settings (sliders icon) in all languages.
+- NOTE: a separate session added commit e288423 (collapsible location picker in Now, compact daily list with "Show more days", dynamic aria-labels, wording compaction). Check app.js on disk before assuming structure.
+
 ## Future ideas (not yet built)
 
 - Official severe-weather warnings via MeteoAlarm CAP feeds (per-country formats, likely need worker proxying and caching; research first).

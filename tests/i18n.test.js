@@ -59,7 +59,7 @@ test("rain summaries localize into full sentences", () => {
 
   const dry = formatRainSummary("en", { kind: "dry", count: 24 }, formatTime, "model");
   assert.match(dry.headline, /No rain expected/);
-  assert.match(dry.detail, /24 available 15-minute model intervals/);
+  assert.match(dry.detail, /24 15-minute model intervals checked/);
 });
 
 test("weather labels, compass points and Beaufort forces localize", () => {

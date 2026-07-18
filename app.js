@@ -36,14 +36,15 @@ const BRIEFING_HOURS = [6, 7, 8, 9, 12, 18, 21];
 const elements = Object.fromEntries([
   "search-form", "location-search", "gps-button", "refresh-button", "search-results",
   "search-results-heading", "search-results-list", "saved-locations", "saved-location-buttons",
+  "location-picker", "location-current-name",
   "status", "error", "weather-content", "weather-location-heading", "location-context",
   "save-location-button", "share-button", "hero-icon", "decision-summary", "summary-caveat",
   "summary-comparison", "sun-summary", "weather-age",
   "measured-observation", "station-description", "measured-values", "current-values",
   "rain-summary", "rain-source-badge", "rain-visual", "rain-detail-intro", "rain-timeline",
   "tab-now", "tab-forecast", "tab-more", "view-now", "view-forecast", "view-more",
-  "forecast-content", "hourly-list", "daily-list", "air-section", "air-values",
-  "notif-status", "notif-enable-button", "notif-disable-button", "briefing-select", "briefing-row",
+  "forecast-content", "hourly-list", "daily-list", "daily-more-button", "air-section", "air-values",
+  "notif-heading", "notif-status", "notif-enable-button", "notif-disable-button", "briefing-select", "briefing-row",
   "language-select", "temperature-select", "wind-select", "precip-select",
   "forget-button", "buienradar-credit", "kmi-credit", "metar-credit", "metno-credit"
 ].map((id) => [id, document.getElementById(id)]));
@@ -61,6 +62,9 @@ let latestObservation = null;
 let latestAir = null;
 let weatherRequestController = null;
 let searchRequestController = null;
+let activeViewTab = "tab-now";
+const viewScrollPositions = { "tab-now": 0, "tab-forecast": 0, "tab-more": 0 };
+let dailyExpanded = false;
 
 buildLanguageOptions();
 buildBriefingOptions();
@@ -82,6 +86,11 @@ function registerEvents() {
   elements["notif-enable-button"].addEventListener("click", enableNotifications);
   elements["notif-disable-button"].addEventListener("click", disableNotifications);
   elements["briefing-select"].addEventListener("change", handleBriefingChange);
+  elements["daily-more-button"].addEventListener("click", () => {
+    dailyExpanded = !dailyExpanded;
+    renderDaily();
+    elements["daily-more-button"].focus();
+  });
 
   elements["language-select"].addEventListener("change", () => {
     settings.language = elements["language-select"].value;
@@ -140,6 +149,7 @@ function applyLanguage() {
   if (autoOption) autoOption.textContent = t("settings.language.auto", { language: detectedLabel });
   buildBriefingOptions();
   renderSaveButton();
+  renderActionLabels();
 }
 
 function buildLanguageOptions() {
@@ -195,12 +205,28 @@ const VIEW_FOR_TAB = {
 };
 
 function selectView(tabId) {
+  if (!(tabId in VIEW_FOR_TAB)) return;
+  const sameView = tabId === activeViewTab;
+  viewScrollPositions[activeViewTab] = sameView ? 0 : currentScrollPosition();
+
   for (const [tab, view] of Object.entries(VIEW_FOR_TAB)) {
     const selected = tab === tabId;
     elements[tab].setAttribute("aria-selected", String(selected));
     elements[tab].tabIndex = selected ? 0 : -1;
     elements[view].hidden = !selected;
   }
+
+  activeViewTab = tabId;
+  restoreViewScroll(sameView ? 0 : viewScrollPositions[tabId]);
+}
+
+function currentScrollPosition() {
+  return Number.isFinite(Number(window.scrollY)) ? Number(window.scrollY) : 0;
+}
+
+function restoreViewScroll(position) {
+  if (typeof window.scrollTo !== "function" || /jsdom/i.test(navigator.userAgent)) return;
+  requestAnimationFrame(() => window.scrollTo({ top: position ?? 0, left: 0, behavior: "auto" }));
 }
 
 function handleTabKeydown(event, tabs) {
@@ -239,7 +265,10 @@ async function handleSearch(event) {
     const data = await response.json();
     renderSearchResults(data.results ?? [], query);
   } catch (error) {
-    if (error.name !== "AbortError") showError(t("error.search"));
+    if (error.name !== "AbortError") {
+      showError(t("error.search"));
+      elements["location-search"].focus();
+    }
   } finally {
     setFormBusy(false);
   }
@@ -319,12 +348,14 @@ function useCurrentLocation() {
         3: t("error.gpsTimeout")
       };
       showError(messages[error.code] ?? t("error.gpsUnavailable"));
+      elements["gps-button"].focus();
     },
     { enableHighAccuracy: true, timeout: 15_000, maximumAge: 5 * 60_000 }
   );
 }
 
 async function loadWeather(location, { moveFocus = false, refresh = false } = {}) {
+  if (!refresh) dailyExpanded = false;
   weatherRequestController?.abort();
   weatherRequestController = new AbortController();
   const { signal } = weatherRequestController;
@@ -362,11 +393,20 @@ async function loadWeather(location, { moveFocus = false, refresh = false } = {}
     elements["forecast-content"].hidden = false;
     elements["refresh-button"].disabled = false;
     announce(`${t("status.loaded", { name: location.name })} ${elements["decision-summary"].textContent}`);
-    if (moveFocus) elements["weather-location-heading"].focus();
+    if (moveFocus) {
+      elements["location-picker"].open = false;
+      elements["weather-location-heading"].focus();
+    } else if (!elements["location-picker"].contains(document.activeElement)) {
+      elements["location-picker"].open = false;
+    }
   } catch (error) {
     if (error.name !== "AbortError") {
       console.error(error);
       showError(t("error.weather"));
+      if (moveFocus) {
+        elements["location-picker"].open = true;
+        elements["location-search"].focus();
+      }
     }
   } finally {
     setWeatherBusy(false);
@@ -493,6 +533,8 @@ function renderAll() {
 
 function renderHeading() {
   elements["weather-location-heading"].textContent = currentLocation.name;
+  elements["location-current-name"].textContent = currentLocation.name;
+  renderActionLabels();
   elements["location-context"].textContent = currentLocation.detail || coordinateLabel(currentLocation);
   const currentEpoch = localIsoToEpoch(latestWeather.current.time, latestWeather.utc_offset_seconds);
   elements["weather-age"].textContent = t("modelTime", { time: formatTime(currentEpoch) });
@@ -622,12 +664,16 @@ function renderRain() {
 
   elements["rain-visual"].replaceChildren();
   elements["rain-timeline"].replaceChildren();
+  const hasVisibleRain = latestRain.points.some((point) => toFiniteNumber(point.mmPerHour) > 0.01);
+  elements["rain-visual"].hidden = !hasVisibleRain;
   const max = Math.max(1, ...latestRain.points.map((point) => point.mmPerHour));
   for (const point of latestRain.points) {
-    const bar = document.createElement("span");
-    bar.className = `rain-bar${point.mmPerHour >= 3 ? " heavy" : ""}`;
-    bar.style.height = `${Math.max(4, Math.min(100, (point.mmPerHour / max) * 100))}%`;
-    elements["rain-visual"].append(bar);
+    if (hasVisibleRain) {
+      const bar = document.createElement("span");
+      bar.className = `rain-bar${point.mmPerHour >= 3 ? " heavy" : ""}`;
+      bar.style.height = `${Math.max(4, Math.min(100, (point.mmPerHour / max) * 100))}%`;
+      elements["rain-visual"].append(bar);
+    }
 
     const item = document.createElement("li");
     item.textContent = t("rain.timelineItem", {
@@ -671,9 +717,12 @@ function renderDaily() {
   elements["daily-list"].replaceChildren();
   const today = todayDateString();
   const daily = latestWeather.daily;
-  daily.time.forEach((date, index) => {
-    if (date < today) return;
-    if (!Number.isFinite(toFiniteNumber(daily.temperature_2m_max[index]))) return;
+  const availableDays = daily.time
+    .map((date, index) => ({ date, index }))
+    .filter(({ date, index }) => date >= today && Number.isFinite(toFiniteNumber(daily.temperature_2m_max[index])));
+  const visibleDays = dailyExpanded ? availableDays : availableDays.slice(0, 7);
+
+  visibleDays.forEach(({ date, index }) => {
     const item = document.createElement("li");
     let day;
     if (date === today) day = t("daily.today");
@@ -697,6 +746,11 @@ function renderDaily() {
     appendForecastItem(item, daily.weather_code[index], true, sentence);
     elements["daily-list"].append(item);
   });
+
+  const remaining = Math.max(0, availableDays.length - 7);
+  elements["daily-more-button"].hidden = remaining === 0;
+  elements["daily-more-button"].setAttribute("aria-expanded", String(dailyExpanded));
+  elements["daily-more-button"].textContent = t(dailyExpanded ? "daily.showFewer" : "daily.showMore", { count: remaining });
 }
 
 function appendForecastItem(item, code, isDay, sentence) {
@@ -747,7 +801,9 @@ function renderAirQuality() {
     ["air.pollen.ragweed", current.ragweed_pollen]
   ];
   for (const [key, value] of pollens) {
-    if (Number.isFinite(toFiniteNumber(value))) rows.push([t(key), `${formatNumber(value, 0)} gr/m³`]);
+    if (Number.isFinite(toFiniteNumber(value))) {
+      rows.push([t(key), t("unit.pollenDensity", { value: formatNumber(value, 0) })]);
+    }
   }
 
   if (!rows.length) {
@@ -806,6 +862,15 @@ function toggleSavedLocation() {
 function renderSaveButton() {
   const saved = (settings.savedLocations ?? []).some((item) => sameLocation(item, currentLocation));
   elements["save-location-button"].textContent = t(saved ? "action.unsave" : "action.save");
+  elements["save-location-button"].setAttribute(
+    "aria-label",
+    t(saved ? "action.unsaveLabel" : "action.saveLabel", { name: currentLocation.name })
+  );
+}
+
+function renderActionLabels() {
+  elements["refresh-button"].setAttribute("aria-label", t("action.refreshLabel", { name: currentLocation.name }));
+  elements["share-button"].setAttribute("aria-label", t("action.shareLabel", { name: currentLocation.name }));
 }
 
 async function shareWeather() {
@@ -822,9 +887,11 @@ async function shareWeather() {
     } else if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(`${title}. ${text}`);
       announce(t("status.copied"));
+    } else {
+      showError(t("error.share"));
     }
   } catch (error) {
-    if (error.name !== "AbortError") announce(t("status.error"));
+    if (error.name !== "AbortError") showError(t("error.share"));
   }
 }
 
@@ -928,7 +995,7 @@ function renderNotifications() {
     ? t("notif.updateTo", { name: currentLocation.name })
     : t("notif.enableFor", { name: currentLocation.name });
   disable.hidden = !active;
-  briefingRow.hidden = false;
+  briefingRow.hidden = !active;
   const briefingHour = settings.notifications.briefingHour;
   elements["briefing-select"].value = Number.isInteger(briefingHour) ? String(briefingHour) : "off";
 }
@@ -941,6 +1008,7 @@ async function enableNotifications() {
     const permission = await Notification.requestPermission();
     if (permission !== "granted") {
       renderNotifications();
+      elements["notif-heading"].focus();
       return;
     }
     const subscription = await ensurePushSubscription();
@@ -949,6 +1017,7 @@ async function enableNotifications() {
     settings.notifications.locationName = currentLocation.name;
     persistSettings();
     renderNotifications();
+    elements["notif-heading"].focus();
     announce(t("notif.enabledStatus", { name: currentLocation.name }));
   } catch (error) {
     console.error(error);
@@ -1044,6 +1113,7 @@ async function disableNotifications() {
     settings.notifications.locationName = null;
     persistSettings();
     renderNotifications();
+    elements["notif-heading"].focus();
     announce(t("notif.disabledStatus"));
   } catch (error) {
     console.error(error);
@@ -1176,7 +1246,6 @@ function announce(message) {
 function showError(message) {
   elements.error.textContent = message;
   elements.error.hidden = false;
-  announce(t("status.error"));
 }
 
 function clearError() {

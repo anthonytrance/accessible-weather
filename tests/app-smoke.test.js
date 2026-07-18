@@ -34,7 +34,9 @@ test("the app loads Mechelen weather and renders its decision-first interface", 
     await waitFor(() => !document.getElementById("weather-content").hidden);
 
     assert.equal(document.getElementById("weather-location-heading").textContent, "Mechelen");
-    assert.match(document.getElementById("decision-summary").textContent, /Measured nearby 23\.6°C/);
+    assert.match(document.getElementById("decision-summary").textContent, /Nearby measurement: 23\.6°C/);
+    assert.equal(document.getElementById("location-picker").open, false);
+    assert.equal(document.getElementById("location-current-name").textContent, "Mechelen");
     assert.equal(document.getElementById("measured-observation").hidden, false);
     assert.match(document.getElementById("station-description").textContent, /Sint-Katelijne-Waver/);
 
@@ -42,9 +44,16 @@ test("the app loads Mechelen weather and renders its decision-first interface", 
     assert.equal(hourlyItems.length, 12);
     assert.equal(hourlyItems[0].querySelectorAll(".wx-icon-holder").length, 1);
     assert.match(hourlyItems[0].textContent, /25\.0°C/);
-    assert.equal(document.querySelectorAll("#daily-list li").length, 16);
+    assert.equal(document.querySelectorAll("#daily-list li").length, 7);
     assert.match(document.querySelector("#daily-list li").textContent, /^Today\./);
+    assert.equal(document.getElementById("daily-more-button").hidden, false);
+    document.getElementById("daily-more-button").click();
+    assert.equal(document.querySelectorAll("#daily-list li").length, 16);
+    assert.equal(document.getElementById("daily-more-button").getAttribute("aria-expanded"), "true");
     assert.equal(document.querySelectorAll("#rain-timeline li").length, 24);
+    assert.equal(document.getElementById("rain-visual").hidden, true);
+    assert.equal(document.getElementById("save-location-button").getAttribute("aria-label"), "Save Mechelen");
+    assert.equal(document.getElementById("share-button").getAttribute("aria-label"), "Share weather for Mechelen");
 
     assert.equal(document.getElementById("sun-summary").hidden, false);
     assert.match(document.getElementById("sun-summary").textContent, /daylight/);

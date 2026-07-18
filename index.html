@@ -23,7 +23,7 @@
           <p class="eyebrow" data-i18n="app.eyebrow">Accessible weather</p>
           <h1 data-i18n="app.name">Weather, clearly</h1>
         </div>
-        <button id="refresh-button" class="secondary-button" type="button" disabled data-i18n="action.refresh">Refresh weather</button>
+        <button id="refresh-button" class="secondary-button" type="button" disabled data-i18n="action.refresh" aria-label="Refresh weather">Refresh</button>
       </div>
     </header>
 
@@ -49,42 +49,51 @@
       <div id="error" class="error-message" role="alert" hidden></div>
 
       <section id="view-now" role="tabpanel" aria-labelledby="tab-now" tabindex="0">
-        <section class="location-panel" aria-labelledby="location-heading">
-          <h2 id="location-heading" data-i18n="location.heading">Choose a location</h2>
-          <div class="location-actions">
-            <form id="search-form" role="search">
-              <label for="location-search" data-i18n="location.label">Town, postal code or place</label>
-              <div class="search-row">
-                <input id="location-search" name="location" type="search" autocomplete="off" enterkeyhint="search" minlength="2" required>
-                <button class="primary-button" type="submit" data-i18n="action.search">Search</button>
-              </div>
-            </form>
-            <div class="or-divider" aria-hidden="true" data-i18n="location.or">or</div>
-            <button id="gps-button" class="secondary-button" type="button" data-i18n="action.gps">Use my current location</button>
-          </div>
+        <details id="location-picker" class="location-panel" open>
+          <summary class="location-picker-summary">
+            <span class="location-picker-icon" aria-hidden="true"></span>
+            <span data-i18n="location.change">Change location</span>
+            <span id="location-current-name" class="location-current-name">Mechelen</span>
+          </summary>
+          <div class="location-picker-content">
+            <h2 id="location-heading" data-i18n="location.heading">Choose a location</h2>
+            <div class="location-actions">
+              <form id="search-form" role="search">
+                <label for="location-search" data-i18n="location.label">Place or postal code</label>
+                <div class="search-row">
+                  <input id="location-search" name="location" type="search" autocomplete="off" enterkeyhint="search" minlength="2" required>
+                  <button class="primary-button" type="submit" data-i18n="action.search">Search</button>
+                </div>
+              </form>
+              <div class="or-divider" aria-hidden="true" data-i18n="location.or">or</div>
+              <button id="gps-button" class="secondary-button" type="button" data-i18n="action.gps">Use my current location</button>
+            </div>
 
-          <div id="search-results" class="search-results" hidden>
-            <h3 id="search-results-heading" tabindex="-1" data-i18n="results.heading">Search results</h3>
-            <ul id="search-results-list" aria-labelledby="search-results-heading"></ul>
-          </div>
+            <div id="search-results" class="search-results" hidden>
+              <h3 id="search-results-heading" tabindex="-1" data-i18n="results.heading">Search results</h3>
+              <ul id="search-results-list" aria-labelledby="search-results-heading"></ul>
+            </div>
 
-          <div id="saved-locations" class="saved-locations" hidden>
-            <h3 data-i18n="saved.heading">Saved locations</h3>
-            <div id="saved-location-buttons" class="button-cluster"></div>
+            <div id="saved-locations" class="saved-locations" hidden>
+              <h3 data-i18n="saved.heading">Saved locations</h3>
+              <div id="saved-location-buttons" class="button-cluster"></div>
+            </div>
           </div>
-        </section>
+        </details>
 
         <div id="weather-content" hidden aria-busy="false">
           <section class="hero-card" aria-labelledby="weather-location-heading">
             <div class="hero-heading-row">
-              <div>
-                <p id="location-context" class="eyebrow">Flanders, Belgium</p>
-                <h2 id="weather-location-heading" tabindex="-1">Mechelen</h2>
+              <div class="hero-title-row">
+                <span id="hero-icon" class="hero-icon" aria-hidden="true"></span>
+                <div>
+                  <p id="location-context" class="eyebrow">Flanders, Belgium</p>
+                  <h2 id="weather-location-heading" tabindex="-1">Mechelen</h2>
+                </div>
               </div>
               <div class="hero-actions">
-                <span id="hero-icon" class="hero-icon" aria-hidden="true"></span>
-                <button id="save-location-button" class="text-button" type="button" data-i18n="action.save">Save this location</button>
-                <button id="share-button" class="text-button" type="button" data-i18n="action.share">Share this weather</button>
+                <button id="save-location-button" class="text-button" type="button" data-i18n="action.save" aria-label="Save Mechelen">Save</button>
+                <button id="share-button" class="text-button" type="button" data-i18n="action.share" aria-label="Share weather for Mechelen">Share</button>
               </div>
             </div>
             <p id="decision-summary" class="decision-summary"></p>
@@ -140,28 +149,20 @@
 
           <section class="section-card" aria-labelledby="daily-heading">
             <div class="section-heading-row">
-              <h2 id="daily-heading" data-i18n="forecast.long">16-day outlook</h2>
+              <h2 id="daily-heading" data-i18n="forecast.long">Daily outlook</h2>
               <p class="data-age" data-i18n="forecast.model">Open-Meteo model</p>
             </div>
-            <p class="source-note" data-i18n="forecast.longNote">Useful for planning. Exact details become less certain further ahead.</p>
-            <ol id="daily-list" class="daily-list forecast-point-list" data-i18n-aria="daily.listLabel" aria-label="Sixteen-day forecast"></ol>
+            <p class="source-note" data-i18n="forecast.longNote">Less certain further ahead.</p>
+            <ol id="daily-list" class="daily-list forecast-point-list" data-i18n-aria="daily.listLabel" aria-label="Daily forecast"></ol>
+            <button id="daily-more-button" class="secondary-button daily-more-button" type="button" aria-expanded="false" aria-controls="daily-list" hidden>Show more days</button>
           </section>
         </div>
       </section>
 
       <section id="view-more" role="tabpanel" aria-labelledby="tab-more" tabindex="0" hidden>
-        <section id="air-section" class="section-card" aria-labelledby="air-heading" hidden>
-          <div class="section-heading-row">
-            <h2 id="air-heading" data-i18n="air.heading">Air quality and pollen</h2>
-            <p class="data-age" data-i18n="air.note">Latest modelled values for this location.</p>
-          </div>
-          <dl id="air-values" class="weather-values"></dl>
-          <p class="source-note" data-i18n="air.pollenNote">Pollen values are grains per cubic metre and are available in Europe only.</p>
-        </section>
-
         <section class="section-card" aria-labelledby="notif-heading">
-          <h2 id="notif-heading" data-i18n="notif.heading">Notifications</h2>
-          <p class="source-note" data-i18n="notif.intro">Get a push notification shortly before rain starts, and an optional daily briefing. Alerts follow one chosen place.</p>
+          <h2 id="notif-heading" tabindex="-1" data-i18n="notif.heading">Notifications</h2>
+          <p class="source-note" data-i18n="notif.intro">Rain alerts for one place, plus an optional daily briefing.</p>
           <p id="notif-status" class="section-summary notif-status"></p>
           <div class="button-cluster">
             <button id="notif-enable-button" class="primary-button" type="button"></button>
@@ -171,6 +172,15 @@
             <label for="briefing-select" data-i18n="notif.briefingLabel">Daily briefing</label>
             <select id="briefing-select"></select>
           </div>
+        </section>
+
+        <section id="air-section" class="section-card" aria-labelledby="air-heading" hidden>
+          <div class="section-heading-row">
+            <h2 id="air-heading" data-i18n="air.heading">Air quality and pollen</h2>
+            <p class="data-age" data-i18n="air.note">Modelled for this location.</p>
+          </div>
+          <dl id="air-values" class="weather-values"></dl>
+          <p class="source-note" data-i18n="air.pollenNote">Pollen values are grains per cubic metre and are available in Europe only.</p>
         </section>
 
         <section class="section-card compact-card" aria-labelledby="settings-heading">
@@ -205,22 +215,25 @@
             </div>
           </div>
           <button id="forget-button" class="secondary-button" type="button" data-i18n="action.forget">Forget saved locations and preferences</button>
-          <p class="privacy-note" data-i18n="privacy.note">Locations and preferences are stored only in this browser. When weather is requested, the selected coordinates are sent to the named weather providers. If notifications are enabled, the chosen alert location and language are stored on the notification server. There is no account and no profile.</p>
+          <p class="privacy-note" data-i18n="privacy.note">Locations and preferences stay in this browser. Coordinates go to the listed weather providers. With alerts enabled, the server stores the chosen place and language. No account or profile.</p>
         </section>
 
-        <section class="sources" aria-labelledby="sources-heading">
-          <h2 id="sources-heading" data-i18n="sources.heading">Sources</h2>
-          <ul>
-            <li><a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a><span data-i18n="sources.openMeteo">: weather forecast using automatically selected high-resolution models.</span></li>
-            <li id="buienradar-credit" hidden><a href="https://www.buienradar.nl/" target="_blank" rel="noreferrer">Buienradar.nl</a><span data-i18n="sources.buienradar">: two-hour rain nowcast.</span></li>
-            <li id="kmi-credit" hidden><a href="https://www.meteo.be/" target="_blank" rel="noreferrer">KMI/IRM</a><span data-i18n="sources.kmi">: Belgian station observations.</span></li>
-            <li id="metar-credit" hidden><a href="https://aviationweather.gov/" target="_blank" rel="noreferrer">NOAA Aviation Weather Center</a><span data-i18n="sources.metar">: worldwide airport observations (METAR), via NOAA.</span></li>
-            <li id="metno-credit" hidden><a href="https://www.met.no/" target="_blank" rel="noreferrer">MET Norway</a><span data-i18n="sources.metno">: radar rain nowcast for the Nordic region.</span></li>
-            <li><a href="https://open-meteo.com/en/docs/air-quality-api" target="_blank" rel="noreferrer">Open-Meteo Air Quality</a><span data-i18n="sources.airQuality">: air quality and pollen (CAMS).</span></li>
-            <li data-i18n="sources.geonames">Location search data by GeoNames through Open-Meteo.</li>
-          </ul>
-          <p class="privacy-note" data-i18n="footer.warning">Weather can change quickly. Use official warnings for safety-critical decisions.</p>
-        </section>
+        <details class="section-card sources more-disclosure">
+          <summary data-i18n="sources.about">About data and sources</summary>
+          <div class="more-disclosure-content">
+            <h2 id="sources-heading" data-i18n="sources.heading">Sources</h2>
+            <ul>
+              <li><a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a><span data-i18n="sources.openMeteo">: weather forecast using automatically selected high-resolution models.</span></li>
+              <li id="buienradar-credit" hidden><a href="https://www.buienradar.nl/" target="_blank" rel="noreferrer">Buienradar.nl</a><span data-i18n="sources.buienradar">: two-hour rain nowcast.</span></li>
+              <li id="kmi-credit" hidden><a href="https://www.meteo.be/" target="_blank" rel="noreferrer">KMI/IRM</a><span data-i18n="sources.kmi">: Belgian station observations.</span></li>
+              <li id="metar-credit" hidden><a href="https://aviationweather.gov/" target="_blank" rel="noreferrer">NOAA Aviation Weather Center</a><span data-i18n="sources.metar">: worldwide airport observations (METAR), via NOAA.</span></li>
+              <li id="metno-credit" hidden><a href="https://www.met.no/" target="_blank" rel="noreferrer">MET Norway</a><span data-i18n="sources.metno">: radar rain nowcast for the Nordic region.</span></li>
+              <li><a href="https://open-meteo.com/en/docs/air-quality-api" target="_blank" rel="noreferrer">Open-Meteo Air Quality</a><span data-i18n="sources.airQuality">: air quality and pollen (CAMS).</span></li>
+              <li data-i18n="sources.geonames">Location search data by GeoNames through Open-Meteo.</li>
+            </ul>
+          </div>
+        </details>
+        <p class="weather-warning" data-i18n="footer.warning">Weather can change quickly. Use official warnings for safety-critical decisions.</p>
       </section>
     </main>
 

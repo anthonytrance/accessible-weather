@@ -38,8 +38,8 @@
           <span data-i18n="tabs.forecast">Forecast</span>
         </button>
         <button id="tab-more" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="view-more" tabindex="-1">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
-          <span data-i18n="tabs.more">More</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="3.5" y1="6.5" x2="20.5" y2="6.5"/><circle cx="14.5" cy="6.5" r="2"/><line x1="3.5" y1="12" x2="20.5" y2="12"/><circle cx="8" cy="12" r="2"/><line x1="3.5" y1="17.5" x2="20.5" y2="17.5"/><circle cx="16" cy="17.5" r="2"/></svg>
+          <span data-i18n="tabs.more">Settings</span>
         </button>
       </div>
     </nav>
@@ -134,6 +134,15 @@
               <dl id="current-values" class="weather-values"></dl>
             </div>
           </section>
+
+          <section id="air-section" class="section-card" aria-labelledby="air-heading" hidden>
+            <div class="section-heading-row">
+              <h2 id="air-heading" data-i18n="air.heading">Air quality and pollen</h2>
+              <p class="data-age" data-i18n="air.note">Modelled for this location.</p>
+            </div>
+            <dl id="air-values" class="weather-values"></dl>
+            <p class="source-note" data-i18n="air.pollenNote">Pollen values are grains per cubic metre and are available in Europe only.</p>
+          </section>
         </div>
       </section>
 
@@ -172,15 +181,6 @@
             <label for="briefing-select" data-i18n="notif.briefingLabel">Daily briefing</label>
             <select id="briefing-select"></select>
           </div>
-        </section>
-
-        <section id="air-section" class="section-card" aria-labelledby="air-heading" hidden>
-          <div class="section-heading-row">
-            <h2 id="air-heading" data-i18n="air.heading">Air quality and pollen</h2>
-            <p class="data-age" data-i18n="air.note">Modelled for this location.</p>
-          </div>
-          <dl id="air-values" class="weather-values"></dl>
-          <p class="source-note" data-i18n="air.pollenNote">Pollen values are grains per cubic metre and are available in Europe only.</p>
         </section>
 
         <section class="section-card compact-card" aria-labelledby="settings-heading">

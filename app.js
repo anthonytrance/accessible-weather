@@ -65,6 +65,8 @@ let searchRequestController = null;
 let activeViewTab = "tab-now";
 const viewScrollPositions = { "tab-now": 0, "tab-forecast": 0, "tab-more": 0 };
 let dailyExpanded = false;
+let lastLoadedAt = 0;
+const STALE_AFTER_MS = 5 * 60_000;
 
 buildLanguageOptions();
 buildBriefingOptions();
@@ -74,7 +76,28 @@ renderSavedLocations();
 renderNotifications();
 registerEvents();
 registerServiceWorker();
+registerStaleRefresh();
 loadWeather(currentLocation, { moveFocus: false });
+
+// Reload weather when the app comes back to the foreground (home-screen
+// launch, tab switch, back-forward cache) instead of showing stale data.
+function registerStaleRefresh() {
+  document.addEventListener("visibilitychange", refreshIfStale);
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) refreshIfStale();
+  });
+}
+
+function refreshIfStale() {
+  if (document.visibilityState !== "visible" || !latestWeather) return;
+  if (Date.now() - lastLoadedAt >= STALE_AFTER_MS) {
+    loadWeather(currentLocation, { moveFocus: false, refresh: true });
+  } else {
+    // Data is fresh enough, but relative wording ("12 minutes ago", the rain
+    // timeline) may have aged while the app was in the background.
+    renderAll();
+  }
+}
 
 function registerEvents() {
   elements["search-form"].addEventListener("submit", handleSearch);
@@ -188,7 +211,10 @@ function buildBriefingOptions() {
 }
 
 function formatHourLabel(hour) {
-  return new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" }).format(new Date(Date.UTC(2026, 0, 1, hour, 0)));
+  // A local-time Date, so the label always shows exactly the stored hour.
+  // (A UTC date here shifted every label by the browser's offset, which made
+  // a briefing set to "09:00" actually fire at 08:00.)
+  return new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" }).format(new Date(2026, 0, 1, hour, 0));
 }
 
 function syncPreferenceControls() {
@@ -386,6 +412,7 @@ async function loadWeather(location, { moveFocus = false, refresh = false } = {}
     ]);
 
     if (!latestRain) latestRain = modelRainPoints(latestWeather);
+    lastLoadedAt = Date.now();
     settings.lastLocation = currentLocation;
     persistSettings();
     renderAll();

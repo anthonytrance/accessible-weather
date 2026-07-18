@@ -50,6 +50,11 @@ Anthony's brief: don't just add decimals. Look at everything, make it genuinely 
 - Air quality confirmed already global (CAMS, both EAQI and US AQI worldwide; pollen stays Europe-only, a data limitation).
 - New i18n keys station.metar.description / sources.metar / sources.metno in all 5 languages; new credits lis; 27 tests green.
 
+## App-view redesign, 2026-07-18 late (LANDED, deployed, commit 0bc6087)
+
+- Anthony approved tabs over collapsibles. Three views: Now (location + hero + rain + conditions), Forecast (hourly + 16-day stacked, inner sub-tabs removed), More (air, notifications, preferences, sources). One tablist renders as a fixed bottom bar on phones, segmented top bar on desktop. Collapsibles removed again.
+- Same session fixed: null API values rendering as 0° (Number(null)===0 across all formatters, trailing empty forecast days now trimmed), clearer iOS location-permission error, wording coherence pass ("Updated {time}" not "Model time", terser hero/station sentences).
+
 ## Future ideas (not yet built)
 
 - Official severe-weather warnings via MeteoAlarm CAP feeds (per-country formats, likely need worker proxying and caching; research first).

@@ -162,7 +162,7 @@ async function maybeSendRainAlert(env, id, record, lang, state) {
 async function maybeSendBriefing(env, id, record, lang, state) {
   const timezone = record.location.timezone || "UTC";
   const localDate = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(Date.now());
-  const localHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "numeric", hour12: false }).format(Date.now()));
+  const localHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "numeric", hourCycle: "h23" }).format(Date.now()));
   if (localHour !== record.prefs.briefingHour || state.lastBriefingDate === localDate) return;
 
   const daily = await fetchDailyForecast(record.location, timezone);

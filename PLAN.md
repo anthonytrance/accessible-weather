@@ -73,6 +73,10 @@ Anthony's brief: don't just add decimals. Look at everything, make it genuinely 
 - All network-heavy analysis calls are lazy and independent. They run only when Analysis is opened, failures hide only affected cards, and the main weather load remains unchanged.
 - Complete in all five interface languages, four-tab keyboard behavior and screen-reader relationships tested. Test suite is 32/32 green.
 
+## Radar research pass, 2026-07-19 (research + DWD landed, f6deef3)
+
+Researched numeric point-query radar nowcast APIs (no tile decoding). Findings: Bright Sky /radar = real DWD RV composite, free, keyless, 0.01mm/5min units, 2h forecast, point query with distance=0 — LANDED as third radar region (conservative Germany box; grid edges read permanent zero so don't widen carelessly). Yahoo Japan weather API = real radar point nowcast for Japan, 60 min, free but needs a Yahoo Japan developer Client ID — NOT built, awaiting Anthony's decision. US: no free numeric radar nowcast point API exists (MRMS is GRIB/archives, NWS gridpoints are model, AccuWeather MinuteCast free tier only 50 calls/day, Tomorrow.io minutely is premium, Meteosource minutely paid, Pirate Weather minutely is HRRR model not radar, OWM minutely is a proprietary model blend). RainViewer stays the only radar route for US/global and means tile pixel sampling.
+
 ## Future ideas (not yet built)
 
 - Official severe-weather warnings via MeteoAlarm CAP feeds (per-country formats, likely need worker proxying and caching; research first).

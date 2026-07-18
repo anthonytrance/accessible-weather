@@ -414,6 +414,26 @@ button:disabled {
   font-weight: 780;
 }
 
+.analysis-list {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0.8rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.analysis-list.compact {
+  gap: 0.45rem;
+}
+
+.analysis-list p {
+  margin: 0.15rem 0;
+}
+
+.analysis-verdict {
+  margin: 0.9rem 0 0;
+  font-weight: 750;
+}
+
 .source-badge {
   width: fit-content;
   margin: 0;
@@ -647,7 +667,7 @@ summary {
 
 .app-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.35rem;
   padding: 0.4rem 0;
 }
@@ -669,6 +689,10 @@ summary {
   width: 1.35rem;
   height: 1.35rem;
   flex-shrink: 0;
+}
+
+.app-tab span {
+  min-width: 0;
 }
 
 .app-tab[aria-selected="true"] {
@@ -777,7 +801,7 @@ summary {
     gap: 0.15rem;
     min-height: 3.2rem;
     padding: 0.3rem 0.5rem;
-    font-size: 0.78rem;
+    font-size: 0.72rem;
   }
 
   .app-tab svg {

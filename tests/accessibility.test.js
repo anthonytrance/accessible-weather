@@ -32,8 +32,8 @@ test("app view tabs have complete screen-reader relationships", async () => {
   const tabs = [...dom.window.document.querySelectorAll('[role="tab"]')];
   const panels = [...dom.window.document.querySelectorAll('[role="tabpanel"]')];
 
-  assert.equal(tabs.length, 3);
-  assert.equal(panels.length, 3);
+  assert.equal(tabs.length, 4);
+  assert.equal(panels.length, 4);
   assert.equal(tabs.filter((tab) => tab.getAttribute("aria-selected") === "true").length, 1);
   for (const tab of tabs) {
     const panel = dom.window.document.getElementById(tab.getAttribute("aria-controls"));

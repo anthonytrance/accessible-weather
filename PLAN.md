@@ -62,12 +62,23 @@ Anthony's brief: don't just add decimals. Look at everything, make it genuinely 
 - Tabs verdict: three tabs stay; air quality moved to Now (it is weather, not settings); third tab renamed Settings (sliders icon) in all languages.
 - NOTE: a separate session added commit e288423 (collapsible location picker in Now, compact daily list with "Show more days", dynamic aria-labels, wording compaction). Check app.js on disk before assuming structure.
 
+## Analysis tab pass, 2026-07-18 (LANDED)
+
+- Fourth tab, Analysis, deliberately leaves Now, Forecast and Settings uncluttered.
+- Forecast confidence summarizes all 51 members of the global ECMWF IFS ensemble for three days: median high, central 80% range and member-based measurable-rain frequency.
+- Tomorrow compares ECMWF, ICON and GFS, then states whether temperature and rain guidance agree.
+- Climate context uses the fixed global ERA5 reanalysis from 1940 through the last complete year, with 1991-2020 normals and exact-date records. It does not mix changing historical model families.
+- Atmosphere card adds CAPE, lifted index, freezing level, visibility, low/mid/high clouds, wet-bulb temperature, three-hour pressure trend and a meaningful next-24-hour CAPE peak.
+- Moon phase, illumination, next full moon and next new moon are calculated locally.
+- All network-heavy analysis calls are lazy and independent. They run only when Analysis is opened, failures hide only affected cards, and the main weather load remains unchanged.
+- Complete in all five interface languages, four-tab keyboard behavior and screen-reader relationships tested. Test suite is 32/32 green.
+
 ## Future ideas (not yet built)
 
 - Official severe-weather warnings via MeteoAlarm CAP feeds (per-country formats, likely need worker proxying and caching; research first).
-- More KMI station fields; historical "this day last year"; moon phase; visibility.
+- More KMI station fields; historical "this day last year"; decoded raw METAR; coastal marine conditions.
 - More languages (the i18n table makes this cheap).
 
 ## Status
 
-ALL of the numbered scope above LANDED and DEPLOYED on 2026-07-18 (21/21 tests green, live at accessible-weather.pitch-363.workers.dev). VAPID secrets are set on the Worker (regenerated once because a PowerShell pipe BOM'd the first pair; always pipe secrets from a POSIX shell). The push subscribe/pending/unsubscribe endpoints were verified live. Real-device push (Anthony's phone) not yet exercised; that is the remaining validation step, plus the Future ideas list.
+All completed passes above are live at accessible-weather.pitch-363.workers.dev. VAPID secrets are set on the Worker (regenerated once because a PowerShell pipe BOM'd the first pair; always pipe secrets from a POSIX shell). Push was exercised on Anthony's phone; the follow-up fixed the one-hour briefing-label shift. The current suite is 32/32 green.

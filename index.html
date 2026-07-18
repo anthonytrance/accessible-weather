@@ -34,6 +34,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           <span data-i18n="tabs.forecast">Forecast</span>
         </button>
+        <button id="tab-deep" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="view-deep" tabindex="-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="3 12 7 12 10 5.5 14 18.5 17 12 21 12"/></svg>
+          <span data-i18n="tabs.analysis">Analysis</span>
+        </button>
         <button id="tab-more" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="view-more" tabindex="-1">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="3.5" y1="6.5" x2="20.5" y2="6.5"/><circle cx="14.5" cy="6.5" r="2"/><line x1="3.5" y1="12" x2="20.5" y2="12"/><circle cx="8" cy="12" r="2"/><line x1="3.5" y1="17.5" x2="20.5" y2="17.5"/><circle cx="16" cy="17.5" r="2"/></svg>
           <span data-i18n="tabs.more">Settings</span>
@@ -165,6 +169,49 @@
         </div>
       </section>
 
+      <section id="view-deep" role="tabpanel" aria-labelledby="tab-deep" tabindex="0" aria-busy="false" hidden>
+        <p id="deep-status" class="section-summary" hidden></p>
+
+        <section id="ens-card" class="section-card" aria-labelledby="ens-heading" hidden>
+          <div class="section-heading-row">
+            <h2 id="ens-heading" data-i18n="ens.heading">Forecast confidence</h2>
+            <p id="ens-note" class="data-age"></p>
+          </div>
+          <div id="ens-body"></div>
+        </section>
+
+        <section id="models-card" class="section-card" aria-labelledby="models-heading" hidden>
+          <div class="section-heading-row">
+            <h2 id="models-heading" data-i18n="models.heading">Model comparison</h2>
+          </div>
+          <p id="models-note" class="source-note"></p>
+          <div id="models-body"></div>
+        </section>
+
+        <section id="climate-card" class="section-card" aria-labelledby="climate-heading" hidden>
+          <div class="section-heading-row">
+            <h2 id="climate-heading" data-i18n="climate.heading">Climate context</h2>
+            <p id="climate-note" class="data-age">Compared with global ERA5 reanalysis for these coordinates.</p>
+          </div>
+          <div id="climate-body"></div>
+        </section>
+
+        <section id="atmos-card" class="section-card" aria-labelledby="atmos-heading" hidden>
+          <div class="section-heading-row">
+            <h2 id="atmos-heading" data-i18n="atmos.heading">Atmosphere now</h2>
+          </div>
+          <dl id="atmos-values" class="weather-values"></dl>
+          <p id="atmos-peak" class="source-note" hidden></p>
+        </section>
+
+        <section id="moon-card" class="section-card" aria-labelledby="moon-heading" hidden>
+          <div class="section-heading-row">
+            <h2 id="moon-heading" data-i18n="moon.heading">Moon</h2>
+          </div>
+          <div id="moon-body"></div>
+        </section>
+      </section>
+
       <section id="view-more" role="tabpanel" aria-labelledby="tab-more" tabindex="0" hidden>
         <section class="section-card" aria-labelledby="notif-heading">
           <h2 id="notif-heading" tabindex="-1" data-i18n="notif.heading">Notifications</h2>
@@ -220,7 +267,7 @@
           <div class="more-disclosure-content">
             <h2 id="sources-heading" data-i18n="sources.heading">Sources</h2>
             <ul>
-              <li><a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a><span data-i18n="sources.openMeteo">: weather forecast using automatically selected high-resolution models.</span></li>
+              <li><a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a><span data-i18n="sources.openMeteo">: forecasts, ensembles, model comparison and ERA5 reanalysis.</span></li>
               <li id="buienradar-credit" hidden><a href="https://www.buienradar.nl/" target="_blank" rel="noreferrer">Buienradar.nl</a><span data-i18n="sources.buienradar">: two-hour rain nowcast.</span></li>
               <li id="kmi-credit" hidden><a href="https://www.meteo.be/" target="_blank" rel="noreferrer">KMI/IRM</a><span data-i18n="sources.kmi">: Belgian station observations.</span></li>
               <li id="metar-credit" hidden><a href="https://aviationweather.gov/" target="_blank" rel="noreferrer">NOAA Aviation Weather Center</a><span data-i18n="sources.metar">: worldwide airport observations (METAR), via NOAA.</span></li>

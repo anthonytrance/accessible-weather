@@ -1,10 +1,11 @@
-const CACHE_NAME = "weather-clearly-shell-v5";
+const CACHE_NAME = "weather-clearly-shell-v6";
 const SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./weather-utils.js",
+  "./deep-data.js",
   "./i18n.js",
   "./icons.js",
   "./manifest.webmanifest",

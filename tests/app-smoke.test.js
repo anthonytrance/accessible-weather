@@ -73,7 +73,20 @@ test("the app loads Mechelen weather and renders its decision-first interface", 
     assert.equal(document.getElementById("tab-now").getAttribute("aria-selected"), "true");
     assert.equal(document.getElementById("view-now").hidden, false);
 
-    document.getElementById("tab-more").click();
+    const analysisTab = document.getElementById("tab-deep");
+    analysisTab.click();
+    await waitFor(() => !document.getElementById("ens-card").hidden && !document.getElementById("climate-card").hidden);
+    assert.equal(analysisTab.getAttribute("aria-selected"), "true");
+    assert.equal(document.getElementById("view-deep").hidden, false);
+    assert.equal(document.getElementById("view-deep").getAttribute("aria-busy"), "false");
+    assert.match(document.getElementById("ens-note").textContent, /11 parallel runs/);
+    assert.match(document.getElementById("models-body").textContent, /ECMWF/);
+    assert.match(document.getElementById("climate-body").textContent, /Normal for this time of year/);
+    assert.match(document.getElementById("atmos-values").textContent, /Storm fuel/);
+    assert.match(document.getElementById("moon-body").textContent, /illuminated/);
+
+    analysisTab.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    assert.equal(document.getElementById("tab-more").getAttribute("aria-selected"), "true");
     assert.equal(document.getElementById("view-more").hidden, false);
     assert.equal(document.getElementById("air-section").hidden, false);
   } finally {
@@ -193,10 +206,75 @@ function createFetchMock() {
     }]
   };
 
+  const localDate = currentIso.slice(0, 10);
+  const localMidnight = Date.parse(`${localDate}T00:00:00Z`);
+  const ensembleTimes = Array.from({ length: 72 }, (_, index) => (
+    new Date(localMidnight + index * 3_600_000).toISOString().slice(0, 16)
+  ));
+  const ensemble = { hourly: { time: ensembleTimes } };
+  for (let member = 0; member < 11; member += 1) {
+    const suffix = member === 0 ? "" : `_member${String(member).padStart(2, "0")}`;
+    ensemble.hourly[`temperature_2m${suffix}`] = ensembleTimes.map((_, index) => (
+      18 + Math.floor(index / 24) + Math.sin((index % 24) / 24 * Math.PI) * 7 + member * 0.2
+    ));
+    ensemble.hourly[`precipitation${suffix}`] = ensembleTimes.map((_, index) => (
+      member < 6 && index % 24 === 12 ? 0.6 : 0
+    ));
+  }
+
+  const models = {
+    daily: {
+      time: dailyTimes.slice(0, 2),
+      temperature_2m_max_ecmwf_ifs025: [26, 27],
+      precipitation_sum_ecmwf_ifs025: [0, 0.2],
+      temperature_2m_max_icon_seamless: [26, 28],
+      precipitation_sum_icon_seamless: [0, 0],
+      temperature_2m_max_gfs_seamless: [26, 30],
+      precipitation_sum_gfs_seamless: [0, 2.1]
+    }
+  };
+
+  const analysisHour = Date.parse(`${currentIso.slice(0, 13)}:00:00Z`);
+  const atmosphereTimes = Array.from({ length: 28 }, (_, index) => (
+    new Date(analysisHour + (index - 3) * 3_600_000).toISOString().slice(0, 16)
+  ));
+  const atmosphere = {
+    hourly: {
+      time: atmosphereTimes,
+      cape: atmosphereTimes.map((_, index) => 100 + index * 40),
+      lifted_index: atmosphereTimes.map((_, index) => 2 - index * 0.2),
+      freezing_level_height: atmosphereTimes.map((_, index) => 3200 + index * 20),
+      visibility: atmosphereTimes.map(() => 18_000),
+      cloud_cover_low: atmosphereTimes.map(() => 20),
+      cloud_cover_mid: atmosphereTimes.map(() => 35),
+      cloud_cover_high: atmosphereTimes.map(() => 60),
+      wet_bulb_temperature_2m: atmosphereTimes.map(() => 17.2),
+      pressure_msl: atmosphereTimes.map((_, index) => 1008 + index * 0.4)
+    }
+  };
+
+  const targetMonthDay = localDate.slice(5);
+  const climateTime = ["1940", ...Array.from({ length: 30 }, (_, index) => String(1991 + index)), "2022", String(Number(localDate.slice(0, 4)) - 1)]
+    .map((year) => `${year}-${targetMonthDay}`);
+  const climate = {
+    daily: {
+      time: climateTime,
+      temperature_2m_max: climateTime.map((_, index) => index === 31 ? 36 : (index === 0 ? 18 : 25)),
+      temperature_2m_min: climateTime.map((_, index) => index === 0 ? -3 : 14)
+    }
+  };
+
   return async (input) => {
     const url = String(input);
     if (url.includes("air-quality-api.open-meteo.com")) return jsonResponse(air);
-    if (url.includes("api.open-meteo.com/v1/forecast")) return jsonResponse(weather);
+    if (url.includes("ensemble-api.open-meteo.com")) return jsonResponse(ensemble);
+    if (url.includes("archive-api.open-meteo.com")) return jsonResponse(climate);
+    if (url.includes("api.open-meteo.com/v1/forecast")) {
+      const request = new URL(url);
+      if (request.searchParams.has("models")) return jsonResponse(models);
+      if (request.searchParams.get("hourly")?.includes("cape")) return jsonResponse(atmosphere);
+      return jsonResponse(weather);
+    }
     if (url.includes("gps.buienradar.nl")) return new Response(radarText, { status: 200 });
     if (url.includes("/api/kmi") || url.includes("data/kmi-latest.json")) return jsonResponse(kmi);
     throw new Error(`Unexpected test request: ${url}`);

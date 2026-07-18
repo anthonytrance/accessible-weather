@@ -21,6 +21,17 @@ import {
   uvRatingKey
 } from "./i18n.js";
 import { iconElement, iconNameFor, svgIcon } from "./icons.js";
+import {
+  MOON_PHASE_KEYS,
+  capeRatingKey,
+  computeAtmosphere,
+  computeClimate,
+  computeEnsemble,
+  computeModelComparison,
+  liftedIndexRatingKey,
+  moonPhase,
+  pressureTrendKey
+} from "./deep-data.js";
 
 const STORAGE_KEY = "weather-clearly.v1";
 const DEFAULT_LOCATION = {
@@ -42,8 +53,12 @@ const elements = Object.fromEntries([
   "summary-comparison", "sun-summary", "weather-age",
   "measured-observation", "station-description", "measured-values", "current-values",
   "rain-summary", "rain-source-badge", "rain-visual", "rain-detail-intro", "rain-timeline",
-  "tab-now", "tab-forecast", "tab-more", "view-now", "view-forecast", "view-more",
+  "tab-now", "tab-forecast", "tab-deep", "tab-more",
+  "view-now", "view-forecast", "view-deep", "view-more",
   "forecast-content", "hourly-list", "daily-list", "daily-more-button", "air-section", "air-values",
+  "deep-status", "ens-card", "ens-note", "ens-body", "models-card", "models-note", "models-body",
+  "climate-card", "climate-note", "climate-body", "atmos-card", "atmos-values", "atmos-peak",
+  "moon-card", "moon-body",
   "notif-heading", "notif-status", "notif-enable-button", "notif-disable-button", "briefing-select", "briefing-row",
   "language-select", "temperature-select", "wind-select", "precip-select",
   "forget-button", "buienradar-credit", "kmi-credit", "metar-credit", "metno-credit"
@@ -60,13 +75,17 @@ let latestWeather = null;
 let latestRain = null;
 let latestObservation = null;
 let latestAir = null;
+let latestAnalysis = emptyAnalysisState(null);
 let weatherRequestController = null;
 let searchRequestController = null;
+let analysisRequestController = null;
 let activeViewTab = "tab-now";
-const viewScrollPositions = { "tab-now": 0, "tab-forecast": 0, "tab-more": 0 };
+const viewScrollPositions = { "tab-now": 0, "tab-forecast": 0, "tab-deep": 0, "tab-more": 0 };
+const climateCache = new Map();
 let dailyExpanded = false;
 let lastLoadedAt = 0;
 const STALE_AFTER_MS = 5 * 60_000;
+const ANALYSIS_STALE_AFTER_MS = 30 * 60_000;
 
 buildLanguageOptions();
 buildBriefingOptions();
@@ -142,7 +161,7 @@ function registerEvents() {
     });
   }
 
-  const appTabs = [elements["tab-now"], elements["tab-forecast"], elements["tab-more"]];
+  const appTabs = [elements["tab-now"], elements["tab-forecast"], elements["tab-deep"], elements["tab-more"]];
   appTabs.forEach((tab) => {
     tab.addEventListener("click", () => selectView(tab.id));
     tab.addEventListener("keydown", (event) => handleTabKeydown(event, appTabs));
@@ -227,6 +246,7 @@ function syncPreferenceControls() {
 const VIEW_FOR_TAB = {
   "tab-now": "view-now",
   "tab-forecast": "view-forecast",
+  "tab-deep": "view-deep",
   "tab-more": "view-more"
 };
 
@@ -244,6 +264,7 @@ function selectView(tabId) {
 
   activeViewTab = tabId;
   restoreViewScroll(sameView ? 0 : viewScrollPositions[tabId]);
+  if (tabId === "tab-deep") void ensureAnalysisLoaded();
 }
 
 function currentScrollPosition() {
@@ -382,6 +403,8 @@ function useCurrentLocation() {
 
 async function loadWeather(location, { moveFocus = false, refresh = false } = {}) {
   if (!refresh) dailyExpanded = false;
+  const requestedAnalysisKey = analysisLocationKey(location);
+  if (latestAnalysis.locationKey !== requestedAnalysisKey) resetAnalysis(location);
   weatherRequestController?.abort();
   weatherRequestController = new AbortController();
   const { signal } = weatherRequestController;
@@ -413,6 +436,7 @@ async function loadWeather(location, { moveFocus = false, refresh = false } = {}
 
     if (!latestRain) latestRain = modelRainPoints(latestWeather);
     lastLoadedAt = Date.now();
+    if (refresh) latestAnalysis.loadedAt = 0;
     settings.lastLocation = currentLocation;
     persistSettings();
     renderAll();
@@ -420,6 +444,7 @@ async function loadWeather(location, { moveFocus = false, refresh = false } = {}
     elements["forecast-content"].hidden = false;
     elements["refresh-button"].disabled = false;
     announce(`${t("status.loaded", { name: location.name })} ${elements["decision-summary"].textContent}`);
+    if (activeViewTab === "tab-deep") void ensureAnalysisLoaded({ force: refresh });
     if (moveFocus) {
       elements["location-picker"].open = false;
       elements["weather-location-heading"].focus();
@@ -468,6 +493,171 @@ async function fetchAirQuality(location, signal) {
   });
   const response = await fetch(url, { signal });
   if (!response.ok) throw new Error(`Air quality returned ${response.status}.`);
+  return response.json();
+}
+
+function emptyAnalysisState(locationKey) {
+  return {
+    locationKey,
+    ensemble: null,
+    models: null,
+    climate: null,
+    atmosphere: null,
+    loadedAt: 0,
+    loading: false
+  };
+}
+
+function analysisLocationKey(location) {
+  return `${Number(location.latitude).toFixed(4)},${Number(location.longitude).toFixed(4)}`;
+}
+
+function resetAnalysis(location) {
+  analysisRequestController?.abort();
+  analysisRequestController = null;
+  latestAnalysis = emptyAnalysisState(analysisLocationKey(location));
+  elements["view-deep"].setAttribute("aria-busy", "false");
+  elements["deep-status"].hidden = true;
+  renderAnalysis();
+}
+
+async function ensureAnalysisLoaded({ force = false } = {}) {
+  if (!latestWeather) return;
+  const locationKey = analysisLocationKey(currentLocation);
+  if (latestAnalysis.locationKey !== locationKey) resetAnalysis(currentLocation);
+  if (latestAnalysis.loading) return;
+  if (!force && latestAnalysis.loadedAt && Date.now() - latestAnalysis.loadedAt < ANALYSIS_STALE_AFTER_MS) {
+    renderAnalysis();
+    return;
+  }
+
+  analysisRequestController?.abort();
+  const controller = new AbortController();
+  analysisRequestController = controller;
+  latestAnalysis.loading = true;
+  elements["view-deep"].setAttribute("aria-busy", "true");
+  elements["deep-status"].textContent = t("status.deepLoading", { name: currentLocation.name });
+  elements["deep-status"].hidden = false;
+  announce(t("status.deepLoading", { name: currentLocation.name }));
+
+  const targetDate = todayDateString();
+  const targetMonthDay = targetDate.slice(5);
+  const endYear = Number(targetDate.slice(0, 4)) - 1;
+  const targetLocalTime = latestWeather.current.time;
+
+  try {
+    const results = await Promise.allSettled([
+      fetchEnsembleAnalysis(currentLocation, controller.signal),
+      fetchModelAnalysis(currentLocation, controller.signal),
+      fetchClimateAnalysis(currentLocation, targetMonthDay, endYear, controller.signal),
+      fetchAtmosphereAnalysis(currentLocation, targetLocalTime, controller.signal)
+    ]);
+    if (controller.signal.aborted || analysisRequestController !== controller || latestAnalysis.locationKey !== locationKey) return;
+
+    const previous = latestAnalysis;
+    latestAnalysis = {
+      locationKey,
+      ensemble: settledAnalysisValue(results[0], previous.ensemble),
+      models: settledAnalysisValue(results[1], previous.models),
+      climate: settledAnalysisValue(results[2], previous.climate),
+      atmosphere: settledAnalysisValue(results[3], previous.atmosphere),
+      loadedAt: Date.now(),
+      loading: false
+    };
+    renderAnalysis();
+
+    const availableCount = [
+      latestAnalysis.ensemble,
+      latestAnalysis.models,
+      latestAnalysis.climate,
+      latestAnalysis.atmosphere
+    ].filter(Boolean).length;
+    if (availableCount) {
+      elements["deep-status"].hidden = true;
+      announce(t("status.deepLoaded", { name: currentLocation.name }));
+    } else {
+      elements["deep-status"].textContent = t("status.deepUnavailable");
+      elements["deep-status"].hidden = false;
+      announce(t("status.deepUnavailable"));
+    }
+  } finally {
+    if (analysisRequestController === controller) {
+      latestAnalysis.loading = false;
+      elements["view-deep"].setAttribute("aria-busy", "false");
+      analysisRequestController = null;
+    }
+  }
+}
+
+function settledAnalysisValue(result, previous) {
+  return result.status === "fulfilled" ? result.value : previous;
+}
+
+async function fetchEnsembleAnalysis(location, signal) {
+  const url = new URL("https://ensemble-api.open-meteo.com/v1/ensemble");
+  url.search = new URLSearchParams({
+    latitude: String(location.latitude),
+    longitude: String(location.longitude),
+    hourly: "temperature_2m,precipitation",
+    models: "ecmwf_ifs025",
+    forecast_days: "3",
+    timezone: "auto"
+  });
+  const payload = await fetchAnalysisJson(url, signal, "Ensemble forecast");
+  return computeEnsemble(payload, 3);
+}
+
+async function fetchModelAnalysis(location, signal) {
+  const url = new URL("https://api.open-meteo.com/v1/forecast");
+  url.search = new URLSearchParams({
+    latitude: String(location.latitude),
+    longitude: String(location.longitude),
+    daily: "temperature_2m_max,precipitation_sum",
+    models: "ecmwf_ifs025,icon_seamless,gfs_seamless",
+    forecast_days: "2",
+    timezone: "auto"
+  });
+  const payload = await fetchAnalysisJson(url, signal, "Model comparison");
+  return computeModelComparison(payload, 1);
+}
+
+async function fetchClimateAnalysis(location, targetMonthDay, endYear, signal) {
+  const cacheKey = `${analysisLocationKey(location)}:${targetMonthDay}:${endYear}`;
+  if (climateCache.has(cacheKey)) return climateCache.get(cacheKey);
+
+  const url = new URL("https://archive-api.open-meteo.com/v1/archive");
+  url.search = new URLSearchParams({
+    latitude: String(location.latitude),
+    longitude: String(location.longitude),
+    start_date: "1940-01-01",
+    end_date: `${endYear}-12-31`,
+    daily: "temperature_2m_max,temperature_2m_min",
+    models: "era5",
+    timezone: "auto"
+  });
+  const payload = await fetchAnalysisJson(url, signal, "Climate history");
+  const result = computeClimate(payload, targetMonthDay);
+  if (result) climateCache.set(cacheKey, result);
+  return result;
+}
+
+async function fetchAtmosphereAnalysis(location, targetLocalTime, signal) {
+  const url = new URL("https://api.open-meteo.com/v1/forecast");
+  url.search = new URLSearchParams({
+    latitude: String(location.latitude),
+    longitude: String(location.longitude),
+    hourly: "cape,lifted_index,freezing_level_height,visibility,cloud_cover_low,cloud_cover_mid,cloud_cover_high,wet_bulb_temperature_2m,pressure_msl",
+    forecast_hours: "25",
+    past_hours: "3",
+    timezone: "auto"
+  });
+  const payload = await fetchAnalysisJson(url, signal, "Atmospheric forecast");
+  return computeAtmosphere(payload, targetLocalTime);
+}
+
+async function fetchAnalysisJson(url, signal, label) {
+  const response = await fetch(url, { signal });
+  if (!response.ok) throw new Error(`${label} returned ${response.status}.`);
   return response.json();
 }
 
@@ -554,6 +744,7 @@ function renderAll() {
   renderHourly();
   renderDaily();
   renderAirQuality();
+  renderAnalysis();
   renderSaveButton();
   renderNotifications();
 }
@@ -839,6 +1030,219 @@ function renderAirQuality() {
   }
   renderDefinitionList(elements["air-values"], rows);
   section.hidden = false;
+}
+
+function renderAnalysis() {
+  renderEnsembleAnalysis();
+  renderModelAnalysis();
+  renderClimateAnalysis();
+  renderAtmosphereAnalysis();
+  renderMoonAnalysis();
+  if (latestAnalysis.loading) {
+    elements["deep-status"].textContent = t("status.deepLoading", { name: currentLocation.name });
+    elements["deep-status"].hidden = false;
+  }
+}
+
+function renderEnsembleAnalysis() {
+  const days = latestAnalysis.ensemble;
+  if (!Array.isArray(days) || !days.length) {
+    elements["ens-card"].hidden = true;
+    return;
+  }
+
+  elements["ens-note"].textContent = t("ens.note", { count: days[0].members });
+  const list = document.createElement("ul");
+  list.className = "analysis-list";
+  for (const day of days) {
+    const item = document.createElement("li");
+    appendAnalysisSentence(item, t("ens.temp", {
+      day: formatDay(day.date),
+      median: formatTemperature(day.highMedian),
+      low: formatTemperature(day.highP10),
+      high: formatTemperature(day.highP90)
+    }));
+    appendAnalysisSentence(item, t("ens.rain", {
+      day: formatDay(day.date),
+      wet: day.wetMembers,
+      count: day.members,
+      pct: day.wetPercent
+    }));
+    list.append(item);
+  }
+  elements["ens-body"].replaceChildren(list);
+  elements["ens-card"].hidden = false;
+}
+
+function renderModelAnalysis() {
+  const comparison = latestAnalysis.models;
+  if (!comparison?.models?.length) {
+    elements["models-card"].hidden = true;
+    return;
+  }
+
+  elements["models-note"].textContent = t("models.note", {
+    date: formatDay(comparison.date),
+    count: comparison.models.length
+  });
+  const list = document.createElement("ul");
+  list.className = "analysis-list compact";
+  const countryKeys = {
+    ecmwf_ifs025: "models.country.ecmwf",
+    icon_seamless: "models.country.icon",
+    gfs_seamless: "models.country.gfs"
+  };
+  for (const model of comparison.models) {
+    const item = document.createElement("li");
+    let rain = t("value.notReported");
+    if (model.rain !== null) {
+      rain = model.rain < 0.05
+        ? t("models.dry")
+        : t("models.rain", { amount: formatPrecipitation(model.rain) });
+    }
+    item.textContent = t("models.line", {
+      model: model.label,
+      country: t(countryKeys[model.id]),
+      high: formatTemperature(model.high),
+      rain
+    });
+    list.append(item);
+  }
+  const verdict = document.createElement("p");
+  verdict.className = "analysis-verdict";
+  verdict.textContent = t(`models.agree.${comparison.agreement}`);
+  elements["models-body"].replaceChildren(list, verdict);
+  elements["models-card"].hidden = false;
+}
+
+function renderClimateAnalysis() {
+  const climate = latestAnalysis.climate;
+  if (!climate) {
+    elements["climate-card"].hidden = true;
+    return;
+  }
+
+  const today = todayDateString();
+  const todayIndex = latestWeather?.daily?.time?.indexOf(today) ?? -1;
+  const forecastHigh = todayIndex >= 0
+    ? toFiniteNumber(latestWeather.daily.temperature_2m_max?.[todayIndex])
+    : Number.NaN;
+  const paragraphs = [];
+  paragraphs.push(t("climate.normal", {
+    high: formatTemperature(climate.normalHigh),
+    low: formatTemperature(climate.normalLow)
+  }));
+  if (Number.isFinite(forecastHigh)) {
+    const difference = forecastHigh - climate.normalHigh;
+    const key = Math.abs(difference) < 1
+      ? "climate.near"
+      : (difference > 0 ? "climate.above" : "climate.below");
+    paragraphs.push(t(key, { amount: formatTemperatureDelta(Math.abs(difference)) }));
+  }
+  paragraphs.push(t("climate.records", {
+    date: formatDay(today),
+    endYear: climate.dataEndYear,
+    high: formatTemperature(climate.recordHigh),
+    highYear: climate.recordHighYear,
+    low: formatTemperature(climate.recordLow),
+    lowYear: climate.recordLowYear
+  }));
+
+  elements["climate-note"].textContent = t("climate.note", { endYear: climate.dataEndYear });
+  elements["climate-body"].replaceChildren(...paragraphs.map(analysisParagraph));
+  elements["climate-card"].hidden = false;
+}
+
+function renderAtmosphereAnalysis() {
+  const atmosphere = latestAnalysis.atmosphere;
+  if (!atmosphere) {
+    elements["atmos-card"].hidden = true;
+    return;
+  }
+
+  const rows = [];
+  if (atmosphere.cape !== null) {
+    rows.push([t("atmos.cape"), t("atmos.capeValue", {
+      value: formatNumber(atmosphere.cape, 0),
+      rating: t(capeRatingKey(atmosphere.cape))
+    })]);
+  }
+  if (atmosphere.liftedIndex !== null) {
+    rows.push([t("atmos.li"), t("atmos.liValue", {
+      value: formatNumber(atmosphere.liftedIndex, 1),
+      rating: t(liftedIndexRatingKey(atmosphere.liftedIndex))
+    })]);
+  }
+  if (atmosphere.freezingLevelM !== null) {
+    rows.push([t("atmos.freezing"), formatHeight(atmosphere.freezingLevelM)]);
+  }
+  if (atmosphere.visibilityM !== null) {
+    rows.push([t("atmos.visibility"), formatDistance(atmosphere.visibilityM / 1000)]);
+  }
+  if ([atmosphere.cloudLow, atmosphere.cloudMid, atmosphere.cloudHigh].every((value) => value !== null)) {
+    rows.push([t("atmos.clouds"), t("atmos.cloudsValue", {
+      low: formatNumber(atmosphere.cloudLow, 0),
+      mid: formatNumber(atmosphere.cloudMid, 0),
+      high: formatNumber(atmosphere.cloudHigh, 0)
+    })]);
+  }
+  if (atmosphere.wetBulbC !== null) {
+    rows.push([t("atmos.wetBulb"), formatTemperature(atmosphere.wetBulbC)]);
+  }
+  if (atmosphere.pressureHpa !== null && atmosphere.pressureDelta3h !== null) {
+    rows.push([t("atmos.pressureTrend"), t("atmos.pressureValue", {
+      value: formatNumber(atmosphere.pressureHpa, 0),
+      trend: t(pressureTrendKey(atmosphere.pressureDelta3h)),
+      delta: formatNumber(Math.abs(atmosphere.pressureDelta3h) < 0.05 ? 0 : atmosphere.pressureDelta3h, 1)
+    })]);
+  }
+
+  if (!rows.length) {
+    elements["atmos-card"].hidden = true;
+    return;
+  }
+  renderDefinitionList(elements["atmos-values"], rows);
+  const showPeak = atmosphere.capePeak !== null
+    && atmosphere.capePeakTime
+    && atmosphere.capePeak >= 300
+    && atmosphere.capePeak > (atmosphere.cape ?? 0) + 50;
+  elements["atmos-peak"].hidden = !showPeak;
+  if (showPeak) {
+    const peakEpoch = localIsoToEpoch(atmosphere.capePeakTime, latestWeather.utc_offset_seconds);
+    elements["atmos-peak"].textContent = t("atmos.capePeak", {
+      time: formatTime(peakEpoch),
+      value: formatNumber(atmosphere.capePeak, 0)
+    });
+  }
+  elements["atmos-card"].hidden = false;
+}
+
+function renderMoonAnalysis() {
+  if (!latestWeather) {
+    elements["moon-card"].hidden = true;
+    return;
+  }
+  const moon = moonPhase();
+  const current = analysisParagraph(t("moon.now", {
+    phase: t(MOON_PHASE_KEYS[moon.phaseIndex]),
+    pct: Math.round(moon.illumination * 100)
+  }));
+  const next = analysisParagraph(t("moon.next", {
+    full: formatCalendarDate(moon.nextFullMs),
+    new: formatCalendarDate(moon.nextNewMs)
+  }));
+  elements["moon-body"].replaceChildren(current, next);
+  elements["moon-card"].hidden = false;
+}
+
+function analysisParagraph(text) {
+  const paragraph = document.createElement("p");
+  paragraph.textContent = text;
+  return paragraph;
+}
+
+function appendAnalysisSentence(parent, text) {
+  parent.append(analysisParagraph(text));
 }
 
 function renderDefinitionList(list, values) {
@@ -1214,6 +1618,13 @@ function formatDistance(km) {
   return `${formatNumber(km, km < 10 ? 1 : 0)} km`;
 }
 
+function formatHeight(meters) {
+  if (settings.precipitationUnit === "inch") {
+    return `${formatNumber(meters * 3.28084, 0)} ft`;
+  }
+  return `${formatNumber(meters, 0)} m`;
+}
+
 function formatPrecipitation(mm) {
   if (!Number.isFinite(toFiniteNumber(mm))) return t("value.notReported");
   if (settings.precipitationUnit === "inch") return `${formatNumber(Number(mm) / 25.4, 2)} in`;
@@ -1242,6 +1653,15 @@ function formatTime(epoch) {
 function formatDay(dateString) {
   const [year, month, day] = dateString.split("-").map(Number);
   return new Intl.DateTimeFormat(locale, { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" }).format(Date.UTC(year, month - 1, day));
+}
+
+function formatCalendarDate(epoch) {
+  return new Intl.DateTimeFormat(locale, {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    timeZone: currentLocation.timezone || latestWeather?.timezone || undefined
+  }).format(epoch);
 }
 
 function formatOptional(value, formatter) {

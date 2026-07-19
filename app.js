@@ -938,11 +938,14 @@ function renderRain() {
     }
 
     const item = document.createElement("li");
-    item.textContent = t("rain.timelineItem", {
-      time: formatTime(point.time),
-      intensity: t(intensityKey(point.mmPerHour)),
-      amount: formatIntensity(point.mmPerHour)
-    });
+    const isDry = point.mmPerHour < 0.05;
+    item.textContent = isDry
+      ? t("rain.timelineItemDry", { time: formatTime(point.time), intensity: t(intensityKey(point.mmPerHour)) })
+      : t("rain.timelineItem", {
+          time: formatTime(point.time),
+          intensity: t(intensityKey(point.mmPerHour)),
+          amount: formatIntensity(point.mmPerHour)
+        });
     elements["rain-timeline"].append(item);
   }
 }
@@ -961,17 +964,20 @@ function renderHourly() {
     const item = document.createElement("li");
     const hourly = latestWeather.hourly;
     const isDay = Number(hourly.is_day?.[index] ?? 1) !== 0;
-    const sentence = t("hourly.item", {
+    const rainMm = Number(hourly.precipitation[index] ?? 0);
+    const headline = t("hourly.headline", {
       time: formatTime(epoch),
-      conditions: localizedWeatherLabel(lang, hourly.weather_code[index]),
+      conditions: localizedWeatherLabel(lang, hourly.weather_code[index])
+    });
+    const meta = t(rainMm < 0.05 ? "hourly.metaNoAmount" : "hourly.meta", {
       temp: formatTemperature(hourly.temperature_2m[index]),
       feels: formatTemperature(hourly.apparent_temperature[index]),
       chance: formatNumber(hourly.precipitation_probability[index] ?? 0, 0),
-      amount: formatPrecipitation(hourly.precipitation[index] ?? 0),
+      amount: formatPrecipitation(rainMm),
       wind: formatSpeed(hourly.wind_speed_10m[index]),
       gusts: formatSpeed(hourly.wind_gusts_10m[index])
     });
-    appendForecastItem(item, hourly.weather_code[index], isDay, sentence);
+    appendForecastItem(item, hourly.weather_code[index], isDay, headline, meta);
     elements["hourly-list"].append(item);
   }
 
@@ -998,20 +1004,20 @@ function renderDaily() {
     else day = formatDay(date);
     const offset = latestWeather.utc_offset_seconds;
     const uvValue = daily.uv_index_max?.[index];
-    const sentence = t("daily.item", {
-      day,
-      conditions: localizedWeatherLabel(lang, daily.weather_code[index]),
+    const rainMm = Number(daily.precipitation_sum[index] ?? 0);
+    const headline = t("daily.headline", { day, conditions: localizedWeatherLabel(lang, daily.weather_code[index]) });
+    const meta = t(rainMm < 0.05 ? "daily.metaNoAmount" : "daily.meta", {
       high: formatTemperature(daily.temperature_2m_max[index]),
       low: formatTemperature(daily.temperature_2m_min[index]),
       chance: formatNumber(daily.precipitation_probability_max[index] ?? 0, 0),
-      amount: formatPrecipitation(daily.precipitation_sum[index] ?? 0),
+      amount: formatPrecipitation(rainMm),
       uv: Number.isFinite(toFiniteNumber(uvValue))
         ? t("uv.display", { value: formatNumber(uvValue, 1), rating: t(uvRatingKey(Number(uvValue))) })
         : t("value.notReported"),
       sunrise: formatTime(localIsoToEpoch(daily.sunrise[index], offset)),
       sunset: formatTime(localIsoToEpoch(daily.sunset[index], offset))
     });
-    appendForecastItem(item, daily.weather_code[index], true, sentence);
+    appendForecastItem(item, daily.weather_code[index], true, headline, meta);
     elements["daily-list"].append(item);
   });
 
@@ -1021,11 +1027,17 @@ function renderDaily() {
   elements["daily-more-button"].textContent = t(dailyExpanded ? "daily.showFewer" : "daily.showMore", { count: remaining });
 }
 
-function appendForecastItem(item, code, isDay, sentence) {
+function appendForecastItem(item, code, isDay, headline, meta) {
   item.append(iconElement(document, code, isDay));
   const text = document.createElement("span");
   text.className = "forecast-text";
-  text.textContent = sentence;
+  const headlineEl = document.createElement("span");
+  headlineEl.className = "forecast-headline";
+  headlineEl.textContent = headline;
+  const metaEl = document.createElement("span");
+  metaEl.className = "forecast-meta";
+  metaEl.textContent = meta;
+  text.append(headlineEl, document.createTextNode(" "), metaEl);
   item.append(text);
 }
 

@@ -488,11 +488,14 @@ summary {
 
 .timeline {
   margin-bottom: 0;
-  padding-left: 1.7rem;
+  padding-left: 0;
+  list-style: none;
 }
 
 .timeline li {
   padding: 0.3rem 0 0.55rem 0.4rem;
+  border-left: 0.2rem solid var(--border);
+  padding-left: 0.75rem;
 }
 
 .forecast-point-list {
@@ -609,6 +612,18 @@ summary {
 
 .forecast-text {
   min-width: 0;
+}
+
+.forecast-headline {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-weight: 780;
+}
+
+.forecast-meta {
+  display: block;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .notif-status {

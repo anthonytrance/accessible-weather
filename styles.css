@@ -614,9 +614,15 @@ summary {
   min-width: 0;
 }
 
-.forecast-headline {
-  display: block;
+.forecast-top-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
   margin-bottom: 0.2rem;
+}
+
+.forecast-headline {
   font-weight: 780;
 }
 
@@ -624,6 +630,104 @@ summary {
   display: block;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.rain-chip {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.rain-chip-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.rain-chip.tier-low {
+  background: #e3f0fb;
+  color: #075985;
+}
+
+.rain-chip.tier-medium {
+  background: var(--rain);
+  color: white;
+}
+
+.rain-chip.tier-high {
+  background: var(--rain-heavy);
+  color: white;
+}
+
+.rating-dot {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  margin-right: 0.4rem;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.rating-dot.tier-1 {
+  background: #2e9e4f;
+}
+
+.rating-dot.tier-2 {
+  background: #94c93d;
+}
+
+.rating-dot.tier-3 {
+  background: #f0b429;
+}
+
+.rating-dot.tier-4 {
+  background: #f0803c;
+}
+
+.rating-dot.tier-5 {
+  background: #e0483e;
+}
+
+.rating-dot.tier-6 {
+  background: #8e3b8f;
+}
+
+.wind-arrow-holder {
+  display: inline-flex;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+  transition: transform 0.2s ease;
+}
+
+.wind-arrow-holder svg {
+  width: 100%;
+  height: 100%;
+}
+
+.sun-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin: 0.5rem 0;
+}
+
+.sun-arc {
+  width: 4.5rem;
+  height: 2.3rem;
+  flex-shrink: 0;
+  color: var(--accent-dark);
+}
+
+.sun-arc svg {
+  width: 100%;
+  height: 100%;
 }
 
 .notif-status {

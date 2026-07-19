@@ -21,7 +21,7 @@ import {
   usAqiRatingKey,
   uvRatingKey
 } from "./i18n.js";
-import { iconElement, iconNameFor, svgIcon } from "./icons.js";
+import { dropletSvg, iconElement, iconNameFor, sunArcSvg, svgIcon, windArrowSvg } from "./icons.js";
 import {
   MOON_PHASE_KEYS,
   capeRatingKey,
@@ -51,7 +51,7 @@ const elements = Object.fromEntries([
   "location-picker", "location-current-name",
   "status", "error", "weather-content", "weather-location-heading", "location-context",
   "save-location-button", "share-button", "hero-icon", "decision-summary", "summary-caveat",
-  "summary-comparison", "sun-summary", "weather-age",
+  "summary-comparison", "sun-summary-row", "sun-summary", "sun-arc", "weather-age",
   "measured-observation", "station-description", "measured-values", "current-values",
   "rain-summary", "rain-source-badge", "rain-visual", "rain-detail-intro", "rain-timeline",
   "tab-now", "tab-forecast", "tab-deep", "tab-more",
@@ -851,19 +851,24 @@ function renderYesterdayComparison() {
 
 function renderSunSummary() {
   const target = elements["sun-summary"];
+  const row = elements["sun-summary-row"];
   target.textContent = "";
-  target.hidden = true;
+  row.hidden = true;
   const daily = latestWeather.daily;
   if (!daily?.sunrise) return;
   const todayIndex = daily.time.indexOf(todayDateString());
   if (todayIndex < 0) return;
   const offset = latestWeather.utc_offset_seconds;
-  const sunrise = formatTime(localIsoToEpoch(daily.sunrise[todayIndex], offset));
-  const sunset = formatTime(localIsoToEpoch(daily.sunset[todayIndex], offset));
+  const sunriseEpoch = localIsoToEpoch(daily.sunrise[todayIndex], offset);
+  const sunsetEpoch = localIsoToEpoch(daily.sunset[todayIndex], offset);
+  const sunrise = formatTime(sunriseEpoch);
+  const sunset = formatTime(sunsetEpoch);
   const daylight = formatDuration(daily.daylight_duration?.[todayIndex]);
   if (!daylight) return;
   target.textContent = t("summary.sun", { sunrise, sunset, daylight });
-  target.hidden = false;
+  const fraction = (Date.now() - sunriseEpoch) / (sunsetEpoch - sunriseEpoch);
+  elements["sun-arc"].innerHTML = sunArcSvg(Math.max(0, Math.min(1, fraction)));
+  row.hidden = false;
 }
 
 function renderCurrentConditions() {
@@ -877,13 +882,14 @@ function renderCurrentConditions() {
     [t("value.feelsLike"), formatTemperature(current.apparent_temperature)],
     [t("value.humidity"), `${formatNumber(current.relative_humidity_2m, 0)}%`],
     [t("value.dewPoint"), formatTemperature(dewPoint)],
-    [t("value.wind"), formatWindWithDirection(current.wind_speed_10m, current.wind_direction_10m)],
+    [t("value.wind"), formatWindWithDirection(current.wind_speed_10m, current.wind_direction_10m), windArrowElement(current.wind_direction_10m)],
     [t("value.gusts"), formatSpeed(current.wind_gusts_10m)],
     [t("value.pressure"), `${formatNumber(current.pressure_msl, 0)} hPa`],
     [t("value.cloudCover"), `${formatNumber(current.cloud_cover, 0)}%`]
   ];
   if (Number.isFinite(toFiniteNumber(uvNow))) {
-    rows.push([t("value.uvNow"), t("uv.display", { value: formatNumber(uvNow, 1), rating: t(uvRatingKey(Number(uvNow))) })]);
+    const uvKey = uvRatingKey(Number(uvNow));
+    rows.push([t("value.uvNow"), t("uv.display", { value: formatNumber(uvNow, 1), rating: t(uvKey) }), ratingDot(UV_RATING_TIER[uvKey])]);
   }
   rows.push([t("value.conditions"), localizedWeatherLabel(lang, current.weather_code)]);
   renderDefinitionList(elements["current-values"], rows);
@@ -906,7 +912,7 @@ function renderCurrentConditions() {
   renderDefinitionList(elements["measured-values"], [
     [t("value.temperature"), formatTemperature(latestObservation.temperatureC)],
     [t("value.humidity"), formatOptional(latestObservation.humidityPercent, (value) => `${formatNumber(value, 0)}%`)],
-    [t("value.wind"), formatOptional(latestObservation.windSpeedKmh, (value) => formatWindWithDirection(value, latestObservation.windDirectionDegrees))],
+    [t("value.wind"), formatOptional(latestObservation.windSpeedKmh, (value) => formatWindWithDirection(value, latestObservation.windDirectionDegrees)), windArrowElement(latestObservation.windDirectionDegrees)],
     [t("value.gusts"), formatOptional(latestObservation.windGustKmh, (value) => formatSpeed(value))],
     [t("value.pressure"), formatOptional(latestObservation.pressureHpa, (value) => `${formatNumber(value, 0)} hPa`)],
     [t("value.recentRain"), formatOptional(latestObservation.precipitationMm, (value) => formatPrecipitation(value))]
@@ -965,6 +971,7 @@ function renderHourly() {
     const hourly = latestWeather.hourly;
     const isDay = Number(hourly.is_day?.[index] ?? 1) !== 0;
     const rainMm = Number(hourly.precipitation[index] ?? 0);
+    const chancePercent = Number(hourly.precipitation_probability[index] ?? 0);
     const headline = t("hourly.headline", {
       time: formatTime(epoch),
       conditions: localizedWeatherLabel(lang, hourly.weather_code[index])
@@ -972,12 +979,12 @@ function renderHourly() {
     const meta = t(rainMm < 0.05 ? "hourly.metaNoAmount" : "hourly.meta", {
       temp: formatTemperature(hourly.temperature_2m[index]),
       feels: formatTemperature(hourly.apparent_temperature[index]),
-      chance: formatNumber(hourly.precipitation_probability[index] ?? 0, 0),
+      chance: formatNumber(chancePercent, 0),
       amount: formatPrecipitation(rainMm),
       wind: formatSpeed(hourly.wind_speed_10m[index]),
       gusts: formatSpeed(hourly.wind_gusts_10m[index])
     });
-    appendForecastItem(item, hourly.weather_code[index], isDay, headline, meta);
+    appendForecastItem(item, hourly.weather_code[index], isDay, headline, meta, chancePercent);
     elements["hourly-list"].append(item);
   }
 
@@ -1005,11 +1012,12 @@ function renderDaily() {
     const offset = latestWeather.utc_offset_seconds;
     const uvValue = daily.uv_index_max?.[index];
     const rainMm = Number(daily.precipitation_sum[index] ?? 0);
+    const chancePercent = Number(daily.precipitation_probability_max[index] ?? 0);
     const headline = t("daily.headline", { day, conditions: localizedWeatherLabel(lang, daily.weather_code[index]) });
     const meta = t(rainMm < 0.05 ? "daily.metaNoAmount" : "daily.meta", {
       high: formatTemperature(daily.temperature_2m_max[index]),
       low: formatTemperature(daily.temperature_2m_min[index]),
-      chance: formatNumber(daily.precipitation_probability_max[index] ?? 0, 0),
+      chance: formatNumber(chancePercent, 0),
       amount: formatPrecipitation(rainMm),
       uv: Number.isFinite(toFiniteNumber(uvValue))
         ? t("uv.display", { value: formatNumber(uvValue, 1), rating: t(uvRatingKey(Number(uvValue))) })
@@ -1017,7 +1025,7 @@ function renderDaily() {
       sunrise: formatTime(localIsoToEpoch(daily.sunrise[index], offset)),
       sunset: formatTime(localIsoToEpoch(daily.sunset[index], offset))
     });
-    appendForecastItem(item, daily.weather_code[index], true, headline, meta);
+    appendForecastItem(item, daily.weather_code[index], true, headline, meta, chancePercent);
     elements["daily-list"].append(item);
   });
 
@@ -1027,17 +1035,25 @@ function renderDaily() {
   elements["daily-more-button"].textContent = t(dailyExpanded ? "daily.showFewer" : "daily.showMore", { count: remaining });
 }
 
-function appendForecastItem(item, code, isDay, headline, meta) {
+function appendForecastItem(item, code, isDay, headline, meta, chancePercent) {
   item.append(iconElement(document, code, isDay));
   const text = document.createElement("span");
   text.className = "forecast-text";
+
+  const topRow = document.createElement("span");
+  topRow.className = "forecast-top-row";
   const headlineEl = document.createElement("span");
   headlineEl.className = "forecast-headline";
   headlineEl.textContent = headline;
+  topRow.append(headlineEl);
+  const chip = rainChanceChip(chancePercent);
+  if (chip) topRow.append(chip);
+
   const metaEl = document.createElement("span");
   metaEl.className = "forecast-meta";
   metaEl.textContent = meta;
-  text.append(headlineEl, document.createTextNode(" "), metaEl);
+
+  text.append(topRow, metaEl);
   item.append(text);
 }
 
@@ -1059,9 +1075,11 @@ function renderAirQuality() {
   const euAqi = toFiniteNumber(current.european_aqi);
   const usAqi = toFiniteNumber(current.us_aqi);
   if (Number.isFinite(euAqi)) {
-    rows.push([t("air.aqiEuropean"), t("air.display", { value: formatNumber(euAqi, 0), rating: t(europeanAqiRatingKey(euAqi)) })]);
+    const euKey = europeanAqiRatingKey(euAqi);
+    rows.push([t("air.aqiEuropean"), t("air.display", { value: formatNumber(euAqi, 0), rating: t(euKey) }), ratingDot(AQI_RATING_TIER[euKey])]);
   } else if (Number.isFinite(usAqi)) {
-    rows.push([t("air.aqiUs"), t("air.display", { value: formatNumber(usAqi, 0), rating: t(usAqiRatingKey(usAqi)) })]);
+    const usKey = usAqiRatingKey(usAqi);
+    rows.push([t("air.aqiUs"), t("air.display", { value: formatNumber(usAqi, 0), rating: t(usKey) }), ratingDot(AQI_RATING_TIER[usKey])]);
   }
   const pollutants = [
     ["air.pm25", current.pm2_5],
@@ -1309,15 +1327,74 @@ function appendAnalysisSentence(parent, text) {
 
 function renderDefinitionList(list, values) {
   list.replaceChildren();
-  for (const [term, description] of values) {
+  for (const [term, description, decoration] of values) {
     const wrapper = document.createElement("div");
     const dt = document.createElement("dt");
     const dd = document.createElement("dd");
     dt.textContent = term;
-    dd.textContent = description;
+    if (decoration) {
+      dd.append(decoration, document.createTextNode(` ${description}`));
+    } else {
+      dd.textContent = description;
+    }
     wrapper.append(dt, dd);
     list.append(wrapper);
   }
+}
+
+// Rating word -> colour-tier class, low/good at tier-1 through worst at tier-5/6.
+// Colour is always paired with the existing rating word, never used alone.
+const UV_RATING_TIER = {
+  "uv.rating.low": "tier-1",
+  "uv.rating.moderate": "tier-2",
+  "uv.rating.high": "tier-3",
+  "uv.rating.veryHigh": "tier-4",
+  "uv.rating.extreme": "tier-5"
+};
+const AQI_RATING_TIER = {
+  "air.rating.good": "tier-1",
+  "air.rating.fair": "tier-2",
+  "air.rating.moderate": "tier-3",
+  "air.rating.poor": "tier-4",
+  "air.rating.veryPoor": "tier-5",
+  "air.rating.extremelyPoor": "tier-6"
+};
+
+function ratingDot(tierClass) {
+  if (!tierClass) return null;
+  const dot = document.createElement("span");
+  dot.className = `rating-dot ${tierClass}`;
+  dot.setAttribute("aria-hidden", "true");
+  return dot;
+}
+
+function windArrowElement(degrees) {
+  if (!Number.isFinite(Number(degrees))) return null;
+  const span = document.createElement("span");
+  span.className = "wind-arrow-holder";
+  span.setAttribute("aria-hidden", "true");
+  span.innerHTML = windArrowSvg();
+  span.style.transform = `rotate(${(Number(degrees) + 180) % 360}deg)`;
+  return span;
+}
+
+function rainChanceTier(percent) {
+  if (percent >= 70) return "tier-high";
+  if (percent >= 40) return "tier-medium";
+  return "tier-low";
+}
+
+function rainChanceChip(percent) {
+  if (!Number.isFinite(percent) || percent < 10) return null;
+  const chip = document.createElement("span");
+  chip.className = `rain-chip ${rainChanceTier(percent)}`;
+  chip.setAttribute("aria-hidden", "true");
+  chip.innerHTML = dropletSvg();
+  const value = document.createElement("span");
+  value.className = "rain-chip-value";
+  value.textContent = `${Math.round(percent)}%`;
+  chip.append(value);
+  return chip;
 }
 
 function renderSavedLocations() {

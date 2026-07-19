@@ -51,3 +51,26 @@ export function iconElement(document, code, isDay, className) {
   span.innerHTML = svgIcon(iconNameFor(code, isDay), className ?? "wx-icon");
   return span;
 }
+
+// Decorative droplet used on the small rain-chance chip in forecast cards.
+export function dropletSvg(className = "rain-chip-icon") {
+  return `<svg class="${className}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 2.3c-.5 3-5.5 9-5.5 13a5.5 5.5 0 0 0 11 0c0-4-5-10-5.5-13Z"/></svg>`;
+}
+
+// Points north by default; callers rotate it to the wind direction.
+export function windArrowSvg(className = "wind-arrow-icon") {
+  return `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6.5 10.5 12 5 17.5 10.5"/></svg>`;
+}
+
+// A quarter-circle sun path with a dot at the given 0 (sunrise) to 1 (sunset) fraction.
+export function sunArcSvg(fraction) {
+  const clamped = Number.isFinite(fraction) ? Math.max(0, Math.min(1, fraction)) : null;
+  let dot = "";
+  if (clamped !== null) {
+    const angle = Math.PI * (1 - clamped);
+    const x = (50 + 40 * Math.cos(angle)).toFixed(1);
+    const y = (46 - 40 * Math.sin(angle)).toFixed(1);
+    dot = `<circle cx="${x}" cy="${y}" r="4.5" fill="currentColor"/>`;
+  }
+  return `<svg viewBox="0 0 100 50" aria-hidden="true" focusable="false"><path d="M10 46 A40 40 0 0 1 90 46" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="1 5" stroke-linecap="round" opacity="0.55"/><line x1="4" y1="46" x2="96" y2="46" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>${dot}</svg>`;
+}

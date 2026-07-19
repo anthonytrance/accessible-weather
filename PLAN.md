@@ -91,6 +91,17 @@ Researched numeric point-query radar nowcast APIs (no tile decoding). Findings: 
 - Hourly/daily meta line drops the precipitation amount when it rounds to zero, keeping rain% (still informative) without repeated "0.0mm" noise across every dry hour/day.
 - All 5 languages updated in lockstep, i18n key-parity test green, 34/34 suite green.
 
+## Visual layer pass, 2026-07-19 (LANDED, deployed)
+
+Anthony asked whether other weather apps use icons/color for the numbers we'd just decluttered, and whether that's compatible with the screen-reader wording — answer was yes on both, so he said go. Added four decorative visual elements, all `aria-hidden` and layered on top of text that already fully describes the same data, so nothing changes for the screen reader:
+
+- Rain-chance chip (droplet icon + %) on hourly/daily cards, top-right of the headline row, three color tiers (light/medium/heavy blue), only shown when chance >= 10% so it doesn't reintroduce the clutter that started this whole pass.
+- Wind-direction arrow next to the wind row in both Estimated and Observed conditions, rotated via CSS transform from the degrees already in the data (arrow points the direction the wind is blowing toward, i.e. from-degrees + 180).
+- Colour-coded rating dot next to the UV index and air-quality rows (current conditions + Air Quality card), green through purple, six-tier scale shared between UV's five ratings and AQI's six. Colour is always paired with the existing rating word, never the only signal.
+- Sunrise/sunset arc (small SVG quarter-circle with a sun dot at today's time-of-day fraction) next to the existing sun summary sentence in the Now hero card.
+- `renderDefinitionList` now takes an optional third tuple element (a decorative DOM node) so rows can carry one of these without touching the term/description text.
+- 34/34 tests green including axe-core; contrast-checked the three rain-chip colour tiers by hand (all >=4.5:1).
+
 ## Status
 
 All completed passes above are live at accessible-weather.pitch-363.workers.dev. VAPID secrets are set on the Worker (regenerated once because a PowerShell pipe BOM'd the first pair; always pipe secrets from a POSIX shell). Push was exercised on Anthony's phone; the follow-up fixed the one-hour briefing-label shift. The current suite is 32/32 green.

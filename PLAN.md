@@ -83,6 +83,14 @@ Researched numeric point-query radar nowcast APIs (no tile decoding). Findings: 
 - More KMI station fields; historical "this day last year"; decoded raw METAR; coastal marine conditions.
 - More languages (the i18n table makes this cheap).
 
+## Declutter pass, 2026-07-19 (LANDED, deployed, commit 7093f8b)
+
+- Anthony flagged the rain timeline as "numbered" clutter: `#rain-timeline` was the only list missing `list-style: none`, so it showed literal 1/2/3 markers. Fixed; replaced with a thin left-border rail.
+- Rain timeline also dropped the redundant "dry, 0.0mm/h" wording, since the intensity word already says there's no rain; amount clause only prints when non-dry.
+- Hourly/daily forecast cards were one run-on sentence (time, conditions, temp, feels, rain%, amount, wind all inline). Split into a bold headline (time + conditions) and a muted meta line (temp/feels/rain/wind), same words and order, purely a visual/typographic split — screen readers get the same content.
+- Hourly/daily meta line drops the precipitation amount when it rounds to zero, keeping rain% (still informative) without repeated "0.0mm" noise across every dry hour/day.
+- All 5 languages updated in lockstep, i18n key-parity test green, 34/34 suite green.
+
 ## Status
 
 All completed passes above are live at accessible-weather.pitch-363.workers.dev. VAPID secrets are set on the Worker (regenerated once because a PowerShell pipe BOM'd the first pair; always pipe secrets from a POSIX shell). Push was exercised on Anthony's phone; the follow-up fixed the one-hour briefing-label shift. The current suite is 32/32 green.

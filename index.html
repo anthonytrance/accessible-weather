@@ -57,10 +57,8 @@
             <span id="location-current-name" class="location-current-name">Mechelen</span>
           </summary>
           <div class="location-picker-content">
-            <h2 id="location-heading" data-i18n="location.heading">Choose a location</h2>
-
             <div id="gps-fix" class="gps-fix" hidden>
-              <h3 id="gps-fix-heading" data-i18n="gps.fixHeading">Measured position</h3>
+              <h2 id="gps-fix-heading" data-i18n="gps.fixHeading">Measured position</h2>
               <dl id="gps-fix-values" class="weather-values"></dl>
             </div>
 
@@ -109,7 +107,6 @@
               <span id="sun-arc" class="sun-arc" aria-hidden="true"></span>
               <p id="sun-summary" class="summary-caveat"></p>
             </div>
-            <p id="summary-caveat" class="summary-caveat"></p>
           </section>
 
           <section class="section-card rain-section" aria-labelledby="rain-heading">
@@ -229,7 +226,6 @@
       <section id="view-more" role="tabpanel" aria-labelledby="tab-more" tabindex="0" hidden>
         <section class="section-card" aria-labelledby="notif-heading">
           <h2 id="notif-heading" tabindex="-1" data-i18n="notif.heading">Notifications</h2>
-          <p class="source-note" data-i18n="notif.intro">Rain alerts for one place, plus an optional daily briefing.</p>
           <p id="notif-status" class="section-summary notif-status"></p>
           <div class="button-cluster">
             <button id="notif-enable-button" class="primary-button" type="button"></button>
@@ -273,7 +269,6 @@
             </div>
           </div>
           <button id="forget-button" class="secondary-button" type="button" data-i18n="action.forget">Forget saved locations and preferences</button>
-          <p class="privacy-note" data-i18n="privacy.note">Locations and preferences stay in this browser. Coordinates go to the listed weather providers. With alerts enabled, the server stores the chosen place and language. No account or profile.</p>
         </section>
 
         <details class="section-card sources more-disclosure">
@@ -291,6 +286,8 @@
               <li data-i18n="sources.geonames">Location search data by GeoNames through Open-Meteo.</li>
               <li id="bigdatacloud-credit" hidden><a href="https://www.bigdatacloud.com/" target="_blank" rel="noreferrer">BigDataCloud</a><span data-i18n="sources.reverseGeocode">: turns GPS coordinates into a place name.</span></li>
             </ul>
+            <p id="version-note" class="privacy-note"></p>
+            <p class="privacy-note" data-i18n="privacy.note">Locations and preferences stay in this browser. Coordinates go to the listed providers. With alerts enabled, the server stores the chosen place and language. No account or profile.</p>
           </div>
         </details>
         <p class="weather-warning" data-i18n="footer.warning">Weather can change quickly. Use official warnings for safety-critical decisions.</p>

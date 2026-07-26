@@ -205,6 +205,81 @@ test("a stored GPS place is re-fixed on launch and reports its accuracy in metre
   }
 });
 
+test("a location saved by an older version as \"Current location\" is re-fixed and renamed", async () => {
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const dom = new JSDOM(html, { url: "https://example.test/", pretendToBeVisual: true });
+  const original = {
+    window: globalThis.window,
+    document: globalThis.document,
+    navigator: globalThis.navigator,
+    localStorage: globalThis.localStorage,
+    fetch: globalThis.fetch
+  };
+
+  globalThis.window = dom.window;
+  globalThis.document = dom.window.document;
+  Object.defineProperty(globalThis, "navigator", { value: dom.window.navigator, configurable: true });
+  globalThis.localStorage = dom.window.localStorage;
+  const respond = createFetchMock();
+  let inFlight = 0;
+  globalThis.fetch = async (...args) => {
+    inFlight += 1;
+    try {
+      return await respond(...args);
+    } finally {
+      inFlight -= 1;
+    }
+  };
+
+  Object.defineProperty(dom.window.navigator, "geolocation", {
+    configurable: true,
+    value: {
+      getCurrentPosition(success) {
+        success({ coords: { latitude: 51.02574, longitude: 4.47762, accuracy: 22 } });
+      }
+    }
+  });
+
+  // Exactly what the previous release wrote: a GPS fix under a translated
+  // label, with nothing marking it as a position rather than a place.
+  dom.window.localStorage.setItem("weather-clearly.v1", JSON.stringify({
+    language: "en",
+    temperatureUnit: "celsius",
+    windUnit: "kmh",
+    precipitationUnit: "mm",
+    savedLocations: [],
+    lastLocation: {
+      name: "Current location",
+      detail: "GPS accuracy about 0.0 km",
+      latitude: 51.0654,
+      longitude: 4.5259,
+      timezone: null,
+      countryCode: null
+    }
+  }));
+
+  try {
+    await import(`../app.js?legacy=${Date.now()}`);
+    await waitFor(() => document.getElementById("gps-fix-values").textContent.includes("Mechelen"));
+
+    const stored = JSON.parse(dom.window.localStorage.getItem("weather-clearly.v1"));
+    assert.equal(stored.lastLocation.name, "Mechelen");
+    assert.equal(stored.lastLocation.source, "gps");
+    assert.equal(document.getElementById("location-current-name").textContent, "Mechelen");
+    assert.match(document.getElementById("gps-fix-values").textContent, /22 m/);
+
+    await waitFor(() => inFlight === 0);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  } finally {
+    globalThis.window = original.window;
+    globalThis.document = original.document;
+    Object.defineProperty(globalThis, "navigator", { value: original.navigator, configurable: true });
+    globalThis.localStorage = original.localStorage;
+    globalThis.fetch = original.fetch;
+    dom.window.close();
+  }
+});
+
 function createFetchMock() {
   const offsetSeconds = 7200;
   const now = Date.now();

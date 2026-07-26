@@ -116,6 +116,22 @@ Anthony's report: the stored "Current location" was never re-fixed on launch, so
 - Text removed: the rain headline is no longer repeated in the rain section (the hero already says it), the "{count} intervals checked" line is gone entirely, "Calculated for this location, not measured" duplicated its own heading, the Forecast tab no longer prints "Open-Meteo model" twice, and hourly rows drop "feels like" unless it differs from the reading by at least 1.5 degrees.
 - Two new tests: a stored GPS place is re-fixed on launch and reports metres, and the quarter-hour block renders with per-row labels. Suite 35/35 green.
 
+## Text pass and legacy-state migration, 2026-07-27 (version 2026-07-27.2)
+
+After the pass above deployed, Anthony reported the phone still behaving like the old build. The server was correct (live file hashes matched the deployed commit); the cause was his stored state. The previous release wrote GPS fixes as `{name: "Current location"}` with no marker, and the new re-fix logic only triggers on `source: "gps"`, so a legacy entry kept its stale label and was never re-fixed. `migrateLocation()` now recognises the five translated legacy labels and converts them into a live GPS position on load.
+
+The trap that cost a debugging round: `loadSettings()` runs near the top of the module body, so any `const` it depends on must be declared above it. A `const` further down put the lookup set in the temporal dead zone, the `ReferenceError` was swallowed by the existing `try/catch`, and settings silently fell back to defaults. Constants used during startup live with `STORAGE_KEY` and `DEFAULT_LOCATION` now.
+
+An app version string is rendered into the collapsed sources panel (`APP_VERSION`, `sources.version`), so "did the update arrive?" is now readable on the device instead of guessed.
+
+Text changes in the same pass:
+
+- The hero is one sentence instead of two paragraphs: sky, temperature, rain, in that order.
+- Daily rows carry sunrise and sunset for today and tomorrow only; later days stop at UV.
+- "Estimated here" is hidden when no station observation is on screen, since it then distinguishes against nothing.
+- The privacy note moved inside the collapsed sources disclosure; the notification intro sentence, the "Choose a location" heading and the pollen sentence's long form are gone.
+- Loads only announce the wait when the place actually changes, so a refresh no longer says everything twice.
+
 ## Status
 
 All completed passes above are live at accessible-weather.pitch-363.workers.dev. VAPID secrets are set on the Worker (regenerated once because a PowerShell pipe BOM'd the first pair; always pipe secrets from a POSIX shell). Push was exercised on Anthony's phone; the follow-up fixed the one-hour briefing-label shift. The current suite is 32/32 green.

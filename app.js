@@ -36,6 +36,9 @@ import {
 } from "./deep-data.js";
 
 const STORAGE_KEY = "weather-clearly.v1";
+// Shown in the collapsed sources panel so "did the update arrive?" is a fact
+// you can read out rather than a guess.
+const APP_VERSION = "2026-07-27.2";
 const DEFAULT_LOCATION = {
   name: "Mechelen",
   detail: "Flanders, Belgium",
@@ -45,15 +48,26 @@ const DEFAULT_LOCATION = {
   countryCode: "BE"
 };
 const BRIEFING_HOURS = [6, 7, 8, 9, 12, 18, 21];
+// Earlier versions stored a GPS fix under a translated "Current location"
+// label and no marker, so it was reloaded forever without ever being re-fixed.
+// Recognising those labels turns them back into a live position. Declared up
+// here because loadSettings() runs before the rest of the module body.
+const LEGACY_GPS_NAMES = new Set([
+  "Current location",
+  "Huidige locatie",
+  "Position actuelle",
+  "Aktueller Standort",
+  "Ubicación actual"
+]);
 
 const elements = Object.fromEntries([
   "search-form", "location-search", "gps-button", "refresh-button", "search-results",
   "search-results-heading", "search-results-list", "saved-locations", "saved-location-buttons",
   "location-picker", "location-current-name", "gps-fix", "gps-fix-values",
   "status", "error", "weather-content", "weather-location-heading", "location-context",
-  "save-location-button", "share-button", "hero-icon", "decision-summary", "summary-caveat",
+  "save-location-button", "share-button", "hero-icon", "decision-summary",
   "summary-comparison", "sun-summary-row", "sun-summary", "sun-arc", "weather-age",
-  "measured-observation", "station-description", "measured-values", "current-values",
+  "measured-observation", "station-description", "measured-values", "current-values", "model-heading",
   "rain-summary", "rain-source-badge", "rain-visual", "rain-detail-intro", "rain-timeline",
   "tab-now", "tab-forecast", "tab-deep", "tab-more",
   "view-now", "view-forecast", "view-deep", "view-more",
@@ -65,7 +79,7 @@ const elements = Object.fromEntries([
   "notif-heading", "notif-status", "notif-enable-button", "notif-disable-button", "briefing-select", "briefing-row",
   "language-select", "temperature-select", "wind-select", "precip-select",
   "forget-button", "buienradar-credit", "kmi-credit", "metar-credit", "metno-credit", "dwd-credit",
-  "bigdatacloud-credit"
+  "bigdatacloud-credit", "version-note"
 ].map((id) => [id, document.getElementById(id)]));
 
 const PUSH_SUPPORTED = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
@@ -91,6 +105,7 @@ const CLIMATE_STORAGE_LIMIT = 20;
 let dailyExpanded = false;
 let hourlyExpanded = false;
 let lastLoadedAt = 0;
+let lastLoadedKey = null;
 let gpsRefreshInFlight = false;
 let latestQuarter = null;
 let quarterRequestController = null;
@@ -113,6 +128,8 @@ renderGpsFix();
 loadWeather(currentLocation, { moveFocus: false });
 // A stored GPS place is only "where you are" if we re-fix on every launch.
 void refreshGpsFix();
+// A migrated or unnamed fix gets a place name even when no new fix arrives.
+if (currentLocation.source === "gps" && !currentLocation.detail) void resolvePlaceName(currentLocation);
 
 // Reload weather when the app comes back to the foreground (home-screen
 // launch, tab switch, back-forward cache) instead of showing stale data.
@@ -220,6 +237,7 @@ function applyLanguage() {
   buildBriefingOptions();
   renderSaveButton();
   renderActionLabels();
+  elements["version-note"].textContent = t("sources.version", { version: APP_VERSION });
 }
 
 function buildLanguageOptions() {
@@ -565,7 +583,10 @@ async function loadWeather(location, { moveFocus = false, refresh = false } = {}
   currentLocation = location;
   clearError();
   setWeatherBusy(true);
-  announce(t(refresh ? "status.refreshing" : "status.getting", { name: location.name }));
+  // Only worth announcing the wait when the place changes; a refresh of the
+  // same place would otherwise say everything twice.
+  const movedElsewhere = lastLoadedKey !== analysisLocationKey(location);
+  if (movedElsewhere) announce(t("status.getting", { name: location.name }));
 
   try {
     const weatherPromise = fetchOpenMeteo(location, signal);
@@ -590,6 +611,7 @@ async function loadWeather(location, { moveFocus = false, refresh = false } = {}
 
     if (!latestRain) latestRain = modelRainPoints(latestWeather);
     lastLoadedAt = Date.now();
+    lastLoadedKey = analysisLocationKey(location);
     if (refresh) latestAnalysis.loadedAt = 0;
     settings.lastLocation = currentLocation;
     persistSettings();
@@ -1096,9 +1118,10 @@ function renderDecisionSummary() {
   const temperatureSummary = Number.isFinite(toFiniteNumber(measuredTemperature))
     ? t("summary.measured", { measured: formatTemperature(measuredTemperature), feels: formatTemperature(current.apparent_temperature) })
     : t("summary.estimated", { temp: formatTemperature(current.temperature_2m), feels: formatTemperature(current.apparent_temperature) });
-  elements["decision-summary"].textContent = `${temperatureSummary} ${rain.headline}`;
-  // Rain timing belongs to the rain section; the hero only names the sky.
-  elements["summary-caveat"].textContent = `${localizedWeatherLabel(lang, current.weather_code)}.`;
+  // One sentence for the whole decision: sky, temperature, rain. Timing detail
+  // lives in the rain section instead of being repeated here.
+  const sky = localizedWeatherLabel(lang, current.weather_code);
+  elements["decision-summary"].textContent = `${sky}. ${temperatureSummary} ${rain.headline}`;
   renderYesterdayComparison();
   renderSunSummary();
 }
@@ -1172,6 +1195,8 @@ function renderCurrentConditions() {
   const observationSource = latestObservation?.sourceType ?? null;
   elements["kmi-credit"].hidden = observationSource !== "kmi";
   elements["metar-credit"].hidden = observationSource !== "metar";
+  // With no measured block on screen there is nothing to tell it apart from.
+  elements["model-heading"].hidden = !latestObservation;
   if (!latestObservation) {
     elements["measured-observation"].hidden = true;
     return;
@@ -1291,7 +1316,7 @@ function renderDaily() {
     .filter(({ date, index }) => date >= today && Number.isFinite(toFiniteNumber(daily.temperature_2m_max[index])));
   const visibleDays = dailyExpanded ? availableDays : availableDays.slice(0, 7);
 
-  visibleDays.forEach(({ date, index }) => {
+  visibleDays.forEach(({ date, index }, position) => {
     const item = document.createElement("li");
     let day;
     if (date === today) day = t("daily.today");
@@ -1302,7 +1327,13 @@ function renderDaily() {
     const rainMm = Number(daily.precipitation_sum[index] ?? 0);
     const chancePercent = Number(daily.precipitation_probability_max[index] ?? 0);
     const headline = t("daily.headline", { day, conditions: localizedWeatherLabel(lang, daily.weather_code[index]) });
-    const meta = t(rainMm < 0.05 ? "daily.metaNoAmount" : "daily.meta", {
+    // Sun times shift by a minute a day, so only today and tomorrow carry them.
+    const near = position <= 1;
+    const wet = rainMm >= 0.05;
+    const metaKey = near
+      ? (wet ? "daily.meta" : "daily.metaNoAmount")
+      : (wet ? "daily.metaShort" : "daily.metaShortNoAmount");
+    const meta = t(metaKey, {
       high: formatTemperature(daily.temperature_2m_max[index]),
       low: formatTemperature(daily.temperature_2m_min[index]),
       chance: formatNumber(chancePercent, 0),
@@ -1741,8 +1772,7 @@ function renderActionLabels() {
 async function shareWeather() {
   const text = [
     elements["decision-summary"].textContent,
-    elements["summary-comparison"].hidden ? "" : elements["summary-comparison"].textContent,
-    elements["summary-caveat"].textContent
+    elements["summary-comparison"].hidden ? "" : elements["summary-comparison"].textContent
   ].filter(Boolean).join(" ").trim();
   const title = t("share.title", { name: currentLocation.name });
   try {
@@ -1787,6 +1817,12 @@ function defaultSettings() {
   };
 }
 
+function migrateLocation(location) {
+  if (!location || typeof location !== "object") return null;
+  if (location.source || !LEGACY_GPS_NAMES.has(location.name)) return location;
+  return { ...location, name: coordinateLabel(location), detail: null, source: "gps", accuracyM: null, fixedAt: null };
+}
+
 function loadSettings() {
   const defaults = defaultSettings();
   try {
@@ -1805,7 +1841,7 @@ function loadSettings() {
         ? parsed.precipitationUnit
         : (migratedImperial ? "inch" : defaults.precipitationUnit),
       savedLocations: Array.isArray(parsed.savedLocations) ? parsed.savedLocations : [],
-      lastLocation: parsed.lastLocation ?? DEFAULT_LOCATION,
+      lastLocation: migrateLocation(parsed.lastLocation) ?? DEFAULT_LOCATION,
       notifications: parsed.notifications && typeof parsed.notifications === "object"
         ? {
             enabled: Boolean(parsed.notifications.enabled),
@@ -2134,7 +2170,7 @@ function locationLabel(location) {
 }
 
 function coordinateLabel(location) {
-  return `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`;
+  return `${Number(location.latitude).toFixed(4)}, ${Number(location.longitude).toFixed(4)}`;
 }
 
 function sameLocation(a, b) {

@@ -38,7 +38,7 @@ import {
 const STORAGE_KEY = "weather-clearly.v1";
 // Shown in the collapsed sources panel so "did the update arrive?" is a fact
 // you can read out rather than a guess.
-const APP_VERSION = "2026-07-27.3";
+const APP_VERSION = "2026-07-27.4";
 const DEFAULT_LOCATION = {
   name: "Mechelen",
   detail: "Flanders, Belgium",
@@ -280,7 +280,7 @@ function formatHourLabel(hour) {
   // A local-time Date, so the label always shows exactly the stored hour.
   // (A UTC date here shifted every label by the browser's offset, which made
   // a briefing set to "09:00" actually fire at 08:00.)
-  return new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" }).format(new Date(2026, 0, 1, hour, 0));
+  return new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(2026, 0, 1, hour, 0));
 }
 
 function syncPreferenceControls() {
@@ -2141,10 +2141,13 @@ function formatDuration(seconds) {
   return t("duration.hoursMinutes", { hours: Math.floor(total / 60), minutes: total % 60 });
 }
 
+// 24-hour everywhere, in every language: "14:00" reads as one short phrase,
+// where "2:00 PM" makes a screen reader spell out an am/pm marker every time.
 function formatTime(epoch) {
   return new Intl.DateTimeFormat(locale, {
-    hour: "numeric",
+    hour: "2-digit",
     minute: "2-digit",
+    hourCycle: "h23",
     timeZone: currentLocation.timezone || latestWeather?.timezone || undefined
   }).format(epoch);
 }

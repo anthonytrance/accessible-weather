@@ -56,6 +56,10 @@ test("the app loads Mechelen weather and renders its decision-first interface", 
     // "Feels like" is dropped when it matches the temperature closely.
     assert.doesNotMatch(spokenRow(hourlyItems[0]), /feels/);
     assert.match(spokenRow(hourlyItems[1]), /feels 23\.0°C/);
+    // 24-hour clock in every language, no am/pm for a screen reader to spell.
+    assert.match(spokenRow(hourlyItems[0]), /^\d{2}:\d{2}\./);
+    assert.doesNotMatch(spokenRow(hourlyItems[0]), /\b[AP]M\b/i);
+    assert.doesNotMatch(document.getElementById("sun-summary").textContent, /\b[AP]M\b/i);
     assert.equal(document.querySelectorAll("#daily-list li").length, 7);
     assert.match(document.querySelector("#daily-list li").textContent, /^Today\./);
     assert.equal(document.getElementById("daily-more-button").hidden, false);

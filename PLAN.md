@@ -140,6 +140,10 @@ Anthony reported the forecast "completely broken": no daily outlook, and the 15-
 - Opening the disclosure while the Forecast tab's own quarter-hour request was still running aborted that request, and the aborted branch re-rendered, hid the panel and forced `open` back to false, pulling the panel out from under the user. `ensureQuarterLoaded()` now refuses to start a second request for the same location, the abort branch no longer re-renders, and `renderQuarter()` never touches `open`.
 - Tests assert the spoken text of hourly, quarter and daily rows, that no row has an `aria-label`, and that toggling the disclosure mid-load leaves it open and populated.
 
+## 24-hour clock, 2026-07-27 (version 2026-07-27.4)
+
+Anthony asked for 24-hour times because of how a screen reader speaks the am/pm marker. All three time formatters now use `hour: "2-digit", minute: "2-digit", hourCycle: "h23"`: `formatTime()` in the app, `formatHourLabel()` for the briefing dropdown, and `timeFormatter()` in the Worker so notifications match. Verified identical output ("09:05", "14:00", "21:36") across en, en-US, nl, nl-BE, fr, de and es, and the whole rendered page contains no am/pm marker. Tests assert the hourly row starts with a two-digit hour and that neither the rows nor the sun line contain am/pm.
+
 ## Status
 
 All completed passes above are live at accessible-weather.pitch-363.workers.dev. VAPID secrets are set on the Worker (regenerated once because a PowerShell pipe BOM'd the first pair; always pipe secrets from a POSIX shell). Push was exercised on Anthony's phone; the follow-up fixed the one-hour briefing-label shift. The current suite is 32/32 green.

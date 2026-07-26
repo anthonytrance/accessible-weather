@@ -207,10 +207,13 @@ export function timezoneOffsetMs(timezone, date = new Date()) {
   return asUtc - date.getTime();
 }
 
+// Matches the app: 24-hour clock, so a notification reads the same way the
+// forecast does.
 function timeFormatter(lang, timezone) {
   return (epoch) => new Intl.DateTimeFormat(lang, {
-    hour: "numeric",
+    hour: "2-digit",
     minute: "2-digit",
+    hourCycle: "h23",
     timeZone: timezone || "UTC"
   }).format(epoch);
 }

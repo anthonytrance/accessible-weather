@@ -44,6 +44,14 @@ test("the app loads Mechelen weather and renders its decision-first interface", 
     assert.equal(hourlyItems.length, 12);
     assert.equal(hourlyItems[0].querySelectorAll(".wx-icon-holder").length, 1);
     assert.match(hourlyItems[0].textContent, /25\.0°C/);
+    // One screen-reader stop per row: the row carries the whole sentence and
+    // every visual part inside it is hidden from assistive technology.
+    assert.match(hourlyItems[0].getAttribute("aria-label"), /25\.0°C/);
+    assert.equal(hourlyItems[0].querySelector(".forecast-text").getAttribute("aria-hidden"), "true");
+    assert.equal(hourlyItems[0].querySelector(".wx-icon-holder").getAttribute("aria-hidden"), "true");
+    // "Feels like" is dropped when it matches the temperature closely.
+    assert.doesNotMatch(hourlyItems[0].getAttribute("aria-label"), /feels/);
+    assert.match(hourlyItems[1].getAttribute("aria-label"), /feels 23\.0°C/);
     assert.equal(document.querySelectorAll("#daily-list li").length, 7);
     assert.match(document.querySelector("#daily-list li").textContent, /^Today\./);
     assert.equal(document.getElementById("daily-more-button").hidden, false);
@@ -69,6 +77,12 @@ test("the app loads Mechelen weather and renders its decision-first interface", 
     assert.equal(document.getElementById("view-forecast").hidden, false);
     assert.equal(document.getElementById("forecast-content").hidden, false);
 
+    await waitFor(() => !document.getElementById("quarter-details").hidden);
+    const quarterItems = document.querySelectorAll("#quarter-list li");
+    assert.equal(quarterItems.length, 12);
+    assert.match(document.getElementById("quarter-source").textContent, /ICON-D2/);
+    assert.match(quarterItems[0].getAttribute("aria-label"), /no rain/);
+
     forecastTab.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
     assert.equal(document.getElementById("tab-now").getAttribute("aria-selected"), "true");
     assert.equal(document.getElementById("view-now").hidden, false);
@@ -89,6 +103,98 @@ test("the app loads Mechelen weather and renders its decision-first interface", 
     assert.equal(document.getElementById("tab-more").getAttribute("aria-selected"), "true");
     assert.equal(document.getElementById("view-more").hidden, false);
     assert.equal(document.getElementById("air-section").hidden, false);
+  } finally {
+    globalThis.window = original.window;
+    globalThis.document = original.document;
+    Object.defineProperty(globalThis, "navigator", { value: original.navigator, configurable: true });
+    globalThis.localStorage = original.localStorage;
+    globalThis.fetch = original.fetch;
+    dom.window.close();
+  }
+});
+
+test("a stored GPS place is re-fixed on launch and reports its accuracy in metres", async () => {
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const dom = new JSDOM(html, { url: "https://example.test/", pretendToBeVisual: true });
+  const original = {
+    window: globalThis.window,
+    document: globalThis.document,
+    navigator: globalThis.navigator,
+    localStorage: globalThis.localStorage,
+    fetch: globalThis.fetch
+  };
+
+  globalThis.window = dom.window;
+  globalThis.document = dom.window.document;
+  Object.defineProperty(globalThis, "navigator", { value: dom.window.navigator, configurable: true });
+  globalThis.localStorage = dom.window.localStorage;
+  // Teardown must not land in the middle of a reload, so requests are counted.
+  const respond = createFetchMock();
+  let inFlight = 0;
+  globalThis.fetch = async (...args) => {
+    inFlight += 1;
+    try {
+      return await respond(...args);
+    } finally {
+      inFlight -= 1;
+    }
+  };
+
+  let fixes = 0;
+  Object.defineProperty(dom.window.navigator, "geolocation", {
+    configurable: true,
+    value: {
+      getCurrentPosition(success) {
+        fixes += 1;
+        success({ coords: { latitude: 51.02574, longitude: 4.47762, accuracy: 12.4 } });
+      }
+    }
+  });
+
+  // Yesterday's fix, three kilometres away, stored under an old place name.
+  dom.window.localStorage.setItem("weather-clearly.v1", JSON.stringify({
+    language: "en",
+    temperatureUnit: "celsius",
+    windUnit: "kmh",
+    precipitationUnit: "mm",
+    savedLocations: [],
+    lastLocation: {
+      name: "Sint-Katelijne-Waver",
+      detail: "Antwerpen, Belgium",
+      latitude: 51.0654,
+      longitude: 4.5259,
+      timezone: "Europe/Brussels",
+      source: "gps",
+      accuracyM: 41,
+      fixedAt: Date.now() - 26 * 3_600_000
+    }
+  }));
+
+  try {
+    await import(`../app.js?gps=${Date.now()}`);
+    // The markup ships "Mechelen" as placeholder text, so wait for the panel
+    // that only the resolved fix can fill in.
+    await waitFor(() => document.getElementById("gps-fix-values").textContent.includes("Mechelen"));
+    await waitFor(() => !document.getElementById("weather-content").hidden);
+
+    assert.equal(fixes, 1, "the app should re-fix a stored GPS location on launch");
+    assert.equal(document.getElementById("weather-location-heading").textContent, "Mechelen");
+    const fixPanel = document.getElementById("gps-fix");
+    assert.equal(fixPanel.hidden, false);
+    const fixText = document.getElementById("gps-fix-values").textContent;
+    assert.match(fixText, /Mechelen, Antwerpen, Belgium/);
+    assert.match(fixText, /51\.0257, 4\.4776/);
+    assert.match(fixText, /12 m/);
+    assert.doesNotMatch(fixText, /km/);
+    assert.match(fixText, /Just now/);
+
+    const stored = JSON.parse(dom.window.localStorage.getItem("weather-clearly.v1"));
+    assert.equal(stored.lastLocation.name, "Mechelen");
+    assert.equal(stored.lastLocation.source, "gps");
+    assert.equal(stored.lastLocation.accuracyM, 12.4);
+
+    await waitFor(() => inFlight === 0);
+    await new Promise((resolve) => setTimeout(resolve, 50));
   } finally {
     globalThis.window = original.window;
     globalThis.document = original.document;
@@ -142,7 +248,8 @@ function createFetchMock() {
     hourly: {
       time: hourlyTimes,
       temperature_2m: hourlyTimes.map(() => 25),
-      apparent_temperature: hourlyTimes.map(() => 23),
+      // The first hour feels like it reads; later hours differ enough to say so.
+      apparent_temperature: hourlyTimes.map((_, index) => (index === 0 ? 24.6 : 23)),
       relative_humidity_2m: hourlyTimes.map(() => 45),
       dew_point_2m: hourlyTimes.map(() => 12.4),
       uv_index: hourlyTimes.map(() => 4.2),
@@ -168,6 +275,30 @@ function createFetchMock() {
       uv_index_max: dailyTimes.map(() => 5.4),
       wind_speed_10m_max: dailyTimes.map(() => 22)
     }
+  };
+
+  const quarterTimes = Array.from({ length: 24 }, (_, index) => (
+    new Date(localNow.getTime() + index * 900_000).toISOString().slice(0, 16)
+  ));
+  const quarter = {
+    utc_offset_seconds: offsetSeconds,
+    minutely_15: {
+      time: quarterTimes,
+      temperature_2m_icon_d2: quarterTimes.map((_, index) => 24.6 + index * 0.1),
+      apparent_temperature_icon_d2: quarterTimes.map(() => 23.1),
+      precipitation_icon_d2: quarterTimes.map(() => 0),
+      weather_code_icon_d2: quarterTimes.map(() => 1),
+      wind_speed_10m_icon_d2: quarterTimes.map(() => 14),
+      wind_gusts_10m_icon_d2: quarterTimes.map(() => 26)
+    }
+  };
+
+  const place = {
+    city: "Mechelen",
+    locality: "Mechelen",
+    principalSubdivision: "Antwerpen",
+    countryName: "Belgium",
+    countryCode: "BE"
   };
 
   const air = {
@@ -269,8 +400,10 @@ function createFetchMock() {
     if (url.includes("air-quality-api.open-meteo.com")) return jsonResponse(air);
     if (url.includes("ensemble-api.open-meteo.com")) return jsonResponse(ensemble);
     if (url.includes("archive-api.open-meteo.com")) return jsonResponse(climate);
+    if (url.includes("bigdatacloud.net")) return jsonResponse(place);
     if (url.includes("api.open-meteo.com/v1/forecast")) {
       const request = new URL(url);
+      if (request.searchParams.has("minutely_15") && request.searchParams.has("models")) return jsonResponse(quarter);
       if (request.searchParams.has("models")) return jsonResponse(models);
       if (request.searchParams.get("hourly")?.includes("cape")) return jsonResponse(atmosphere);
       return jsonResponse(weather);

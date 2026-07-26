@@ -58,6 +58,12 @@
           </summary>
           <div class="location-picker-content">
             <h2 id="location-heading" data-i18n="location.heading">Choose a location</h2>
+
+            <div id="gps-fix" class="gps-fix" hidden>
+              <h3 id="gps-fix-heading" data-i18n="gps.fixHeading">Measured position</h3>
+              <dl id="gps-fix-values" class="weather-values"></dl>
+            </div>
+
             <div class="location-actions">
               <form id="search-form" role="search">
                 <label for="location-search" data-i18n="location.label">Place or postal code</label>
@@ -134,7 +140,6 @@
 
             <div class="observation-block">
               <h3 id="model-heading" data-i18n="estimated.heading">Estimated here</h3>
-              <p class="source-note" data-i18n="estimated.note">Calculated for this location, not measured.</p>
               <dl id="current-values" class="weather-values"></dl>
             </div>
           </section>
@@ -149,6 +154,11 @@
               <h2 id="hourly-heading" data-i18n="hourly.heading">Hour by hour</h2>
               <p class="data-age" data-i18n="forecast.model">Open-Meteo model</p>
             </div>
+            <details id="quarter-details" hidden>
+              <summary id="quarter-toggle" data-i18n="quarter.toggle">15-minute steps</summary>
+              <p id="quarter-source" class="source-note"></p>
+              <ol id="quarter-list" class="forecast-point-list"></ol>
+            </details>
             <ol id="hourly-list" class="forecast-point-list"></ol>
             <button id="hourly-more-button" class="secondary-button daily-more-button" type="button" aria-expanded="false" aria-controls="hourly-list" hidden>Show more hours</button>
           </section>
@@ -156,9 +166,8 @@
           <section class="section-card" aria-labelledby="daily-heading">
             <div class="section-heading-row">
               <h2 id="daily-heading" data-i18n="forecast.long">Daily outlook</h2>
-              <p class="data-age" data-i18n="forecast.model">Open-Meteo model</p>
+              <p class="data-age" data-i18n="forecast.longNote">Less certain further ahead</p>
             </div>
-            <p class="source-note" data-i18n="forecast.longNote">Less certain further ahead.</p>
             <ol id="daily-list" class="daily-list forecast-point-list" data-i18n-aria="daily.listLabel" aria-label="Daily forecast"></ol>
             <button id="daily-more-button" class="secondary-button daily-more-button" type="button" aria-expanded="false" aria-controls="daily-list" hidden>Show more days</button>
           </section>
@@ -280,6 +289,7 @@
             <li id="dwd-credit" hidden><a href="https://brightsky.dev/" target="_blank" rel="noreferrer">DWD / Bright Sky</a><span data-i18n="sources.dwd">: German radar rain nowcast (DWD), via Bright Sky.</span></li>
               <li><a href="https://open-meteo.com/en/docs/air-quality-api" target="_blank" rel="noreferrer">Open-Meteo Air Quality</a><span data-i18n="sources.airQuality">: air quality and pollen (CAMS).</span></li>
               <li data-i18n="sources.geonames">Location search data by GeoNames through Open-Meteo.</li>
+              <li id="bigdatacloud-credit" hidden><a href="https://www.bigdatacloud.com/" target="_blank" rel="noreferrer">BigDataCloud</a><span data-i18n="sources.reverseGeocode">: turns GPS coordinates into a place name.</span></li>
             </ul>
           </div>
         </details>

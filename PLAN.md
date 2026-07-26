@@ -102,6 +102,20 @@ Anthony asked whether other weather apps use icons/color for the numbers we'd ju
 - `renderDefinitionList` now takes an optional third tuple element (a decorative DOM node) so rows can carry one of these without touching the term/description text.
 - 34/34 tests green including axe-core; contrast-checked the three rain-chip colour tiers by hand (all >=4.5:1).
 
+## Location, resolution and text pass, 2026-07-27 (built, not yet deployed)
+
+Anthony's report: the stored "Current location" was never re-fixed on launch, so a stale position kept a label claiming it was current; GPS accuracy printed as "0.0 km"; forecast rows read as two elements per hour in VoiceOver; and the interface carried text that added nothing.
+
+- GPS places now carry `source: "gps"`, `accuracyM` and `fixedAt`. On launch, on every return to the foreground after five minutes, and on Refresh, a stored GPS place is re-fixed. A fix more than 750 m away reloads the weather, a closer one just updates the panel. Permission state is read first (`navigator.permissions`) so a denied site never triggers a prompt loop; a failed re-fix keeps the stored fix and shows its age instead of hiding it.
+- The literal "Current location" label is gone. GPS coordinates are reverse-geocoded through BigDataCloud's keyless client endpoint into a real place name, which becomes the heading and the stored `lastLocation.name`. A failed lookup falls back to coordinates. The credit is listed in Sources and only shown for GPS places.
+- The folded-out location panel now has a "Measured position" block: place, coordinates, accuracy and the time of the fix ("Just now" under 90 seconds).
+- Accuracy is formatted in metres by `formatAccuracy()` (feet under imperial), not by the kilometre-scaled `formatDistance()` that produced "0.0 km".
+- Saved locations are stored through `pinnedLocation()`, which strips the GPS bookkeeping so a pinned place is never treated as a live fix later.
+- Forecast rows are one screen-reader element each: the `li` carries an `aria-label` with the whole sentence and the visual layer inside it is `aria-hidden`. Nothing changes visually.
+- 15-minute forecasts: Open-Meteo only publishes real quarter-hourly steps from convection-resolving models (ICON-D2, AROME France HD, HRRR), and silently interpolates hourly data elsewhere, so the app asks for those models **by name** and shows the block only when one of them answers. Verified live: Mechelen gets ICON-D2, Madrid gets AROME, New York gets HRRR, Tokyo and Sydney return "no data" and the section stays hidden. It is a collapsed disclosure inside the existing Hour by hour card, lazy-loaded when the Forecast tab opens, 12 rows of three hours, with the model named in the source line.
+- Text removed: the rain headline is no longer repeated in the rain section (the hero already says it), the "{count} intervals checked" line is gone entirely, "Calculated for this location, not measured" duplicated its own heading, the Forecast tab no longer prints "Open-Meteo model" twice, and hourly rows drop "feels like" unless it differs from the reading by at least 1.5 degrees.
+- Two new tests: a stored GPS place is re-fixed on launch and reports metres, and the quarter-hour block renders with per-row labels. Suite 35/35 green.
+
 ## Status
 
 All completed passes above are live at accessible-weather.pitch-363.workers.dev. VAPID secrets are set on the Worker (regenerated once because a PowerShell pipe BOM'd the first pair; always pipe secrets from a POSIX shell). Push was exercised on Anthony's phone; the follow-up fixed the one-hour briefing-label shift. The current suite is 32/32 green.

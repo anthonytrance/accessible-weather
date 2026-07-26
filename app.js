@@ -1,4 +1,5 @@
 import {
+  haversineKm,
   isBelgium,
   isBuienradarCoverage,
   isDwdCoverage,
@@ -48,7 +49,7 @@ const BRIEFING_HOURS = [6, 7, 8, 9, 12, 18, 21];
 const elements = Object.fromEntries([
   "search-form", "location-search", "gps-button", "refresh-button", "search-results",
   "search-results-heading", "search-results-list", "saved-locations", "saved-location-buttons",
-  "location-picker", "location-current-name",
+  "location-picker", "location-current-name", "gps-fix", "gps-fix-values",
   "status", "error", "weather-content", "weather-location-heading", "location-context",
   "save-location-button", "share-button", "hero-icon", "decision-summary", "summary-caveat",
   "summary-comparison", "sun-summary-row", "sun-summary", "sun-arc", "weather-age",
@@ -57,12 +58,14 @@ const elements = Object.fromEntries([
   "tab-now", "tab-forecast", "tab-deep", "tab-more",
   "view-now", "view-forecast", "view-deep", "view-more",
   "forecast-content", "hourly-list", "hourly-more-button", "daily-list", "daily-more-button", "air-section", "air-values",
+  "quarter-details", "quarter-toggle", "quarter-source", "quarter-list",
   "deep-status", "ens-card", "ens-note", "ens-body", "models-card", "models-note", "models-body",
   "climate-card", "climate-note", "climate-body", "atmos-card", "atmos-values", "atmos-peak",
   "moon-card", "moon-body",
   "notif-heading", "notif-status", "notif-enable-button", "notif-disable-button", "briefing-select", "briefing-row",
   "language-select", "temperature-select", "wind-select", "precip-select",
-  "forget-button", "buienradar-credit", "kmi-credit", "metar-credit", "metno-credit", "dwd-credit"
+  "forget-button", "buienradar-credit", "kmi-credit", "metar-credit", "metno-credit", "dwd-credit",
+  "bigdatacloud-credit"
 ].map((id) => [id, document.getElementById(id)]));
 
 const PUSH_SUPPORTED = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
@@ -88,8 +91,14 @@ const CLIMATE_STORAGE_LIMIT = 20;
 let dailyExpanded = false;
 let hourlyExpanded = false;
 let lastLoadedAt = 0;
+let gpsRefreshInFlight = false;
+let latestQuarter = null;
+let quarterRequestController = null;
 const STALE_AFTER_MS = 5 * 60_000;
 const ANALYSIS_STALE_AFTER_MS = 30 * 60_000;
+const QUARTER_STALE_AFTER_MS = 10 * 60_000;
+// A new fix this far from the stored one is a different place, so refetch.
+const GPS_MOVED_KM = 0.75;
 
 buildLanguageOptions();
 buildBriefingOptions();
@@ -100,7 +109,10 @@ renderNotifications();
 registerEvents();
 registerServiceWorker();
 registerStaleRefresh();
+renderGpsFix();
 loadWeather(currentLocation, { moveFocus: false });
+// A stored GPS place is only "where you are" if we re-fix on every launch.
+void refreshGpsFix();
 
 // Reload weather when the app comes back to the foreground (home-screen
 // launch, tab switch, back-forward cache) instead of showing stale data.
@@ -114,6 +126,7 @@ function registerStaleRefresh() {
 function refreshIfStale() {
   if (document.visibilityState !== "visible" || !latestWeather) return;
   if (Date.now() - lastLoadedAt >= STALE_AFTER_MS) {
+    void refreshGpsFix();
     loadWeather(currentLocation, { moveFocus: false, refresh: true });
   } else {
     // Data is fresh enough, but relative wording ("12 minutes ago", the rain
@@ -125,7 +138,13 @@ function refreshIfStale() {
 function registerEvents() {
   elements["search-form"].addEventListener("submit", handleSearch);
   elements["gps-button"].addEventListener("click", useCurrentLocation);
-  elements["refresh-button"].addEventListener("click", () => loadWeather(currentLocation, { moveFocus: false, refresh: true }));
+  elements["refresh-button"].addEventListener("click", () => {
+    void refreshGpsFix();
+    loadWeather(currentLocation, { moveFocus: false, refresh: true });
+  });
+  elements["quarter-details"].addEventListener("toggle", () => {
+    if (elements["quarter-details"].open) void ensureQuarterLoaded();
+  });
   elements["save-location-button"].addEventListener("click", toggleSavedLocation);
   elements["share-button"].addEventListener("click", shareWeather);
   elements["forget-button"].addEventListener("click", forgetSettings);
@@ -274,6 +293,7 @@ function selectView(tabId) {
   activeViewTab = tabId;
   restoreViewScroll(sameView ? 0 : viewScrollPositions[tabId]);
   if (tabId === "tab-deep") void ensureAnalysisLoaded();
+  if (tabId === "tab-forecast") void ensureQuarterLoaded();
 }
 
 function currentScrollPosition() {
@@ -368,10 +388,11 @@ function selectLocation(location) {
   currentLocation = location;
   settings.lastLocation = location;
   persistSettings();
+  renderGpsFix();
   loadWeather(location, { moveFocus: true });
 }
 
-function useCurrentLocation() {
+async function useCurrentLocation() {
   clearError();
   if (!navigator.geolocation) {
     showError(t("error.gpsUnsupported"));
@@ -380,34 +401,155 @@ function useCurrentLocation() {
 
   announce(t("status.gpsWait"));
   elements["gps-button"].disabled = true;
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const location = {
-        name: t("gps.currentLocation"),
-        detail: t("gps.accuracy", { distance: formatDistance(position.coords.accuracy / 1000) }),
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        timezone: null,
-        countryCode: null
-      };
-      currentLocation = location;
-      settings.lastLocation = location;
-      persistSettings();
-      elements["gps-button"].disabled = false;
-      loadWeather(location, { moveFocus: true });
-    },
-    (error) => {
-      elements["gps-button"].disabled = false;
-      const messages = {
-        1: t("error.gpsDenied"),
-        2: t("error.gpsUnavailable"),
-        3: t("error.gpsTimeout")
-      };
-      showError(messages[error.code] ?? t("error.gpsUnavailable"));
-      elements["gps-button"].focus();
-    },
-    { enableHighAccuracy: true, timeout: 15_000, maximumAge: 5 * 60_000 }
-  );
+  try {
+    const position = await requestPosition({ maximumAge: 0 });
+    const location = gpsLocation(position, currentLocation);
+    elements["gps-button"].disabled = false;
+    adoptGpsLocation(location);
+    loadWeather(location, { moveFocus: true });
+  } catch (error) {
+    elements["gps-button"].disabled = false;
+    const messages = {
+      1: t("error.gpsDenied"),
+      2: t("error.gpsUnavailable"),
+      3: t("error.gpsTimeout")
+    };
+    showError(messages[error?.code] ?? t("error.gpsUnavailable"));
+    elements["gps-button"].focus();
+  }
+}
+
+function requestPosition({ maximumAge = 60_000, timeout = 15_000 } = {}) {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout,
+      maximumAge
+    });
+  });
+}
+
+// A GPS place keeps the last resolved place name until the reverse geocode
+// for the new fix comes back, so the heading never falls back to a bare label.
+function gpsLocation(position, previous) {
+  const reuseName = previous?.source === "gps" && previous.name ? previous.name : null;
+  return {
+    name: reuseName ?? coordinateLabel(position.coords),
+    detail: reuseName ? previous.detail ?? null : null,
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
+    timezone: reuseName ? previous.timezone ?? null : null,
+    countryCode: reuseName ? previous.countryCode ?? null : null,
+    source: "gps",
+    accuracyM: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null,
+    fixedAt: Date.now()
+  };
+}
+
+function adoptGpsLocation(location) {
+  currentLocation = location;
+  settings.lastLocation = location;
+  persistSettings();
+  renderGpsFix();
+  void resolvePlaceName(location);
+}
+
+// Re-fixes a stored GPS location on launch and on every return to the app, so
+// "where you are" is never yesterday's position wearing today's label.
+async function refreshGpsFix() {
+  if (currentLocation.source !== "gps" || !navigator.geolocation || gpsRefreshInFlight) return;
+  if (await geolocationPermission() === "denied") {
+    renderGpsFix();
+    return;
+  }
+
+  gpsRefreshInFlight = true;
+  const previous = currentLocation;
+  try {
+    const position = await requestPosition({ maximumAge: 60_000, timeout: 12_000 });
+    const location = gpsLocation(position, previous);
+    const moved = haversineKm(previous.latitude, previous.longitude, location.latitude, location.longitude);
+    adoptGpsLocation(location);
+    if (moved >= GPS_MOVED_KM) {
+      announce(t("status.gpsMoved"));
+      loadWeather(location, { moveFocus: false });
+    } else if (latestWeather) {
+      renderHeading();
+    }
+  } catch {
+    // No new fix: keep the stored one, which renderGpsFix() marks as older.
+    renderGpsFix();
+  } finally {
+    gpsRefreshInFlight = false;
+  }
+}
+
+async function geolocationPermission() {
+  try {
+    const status = await navigator.permissions?.query({ name: "geolocation" });
+    return status?.state ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+// Free client endpoint, no key. A failure only costs us the place name.
+async function resolvePlaceName(location) {
+  const url = new URL("https://api.bigdatacloud.net/data/reverse-geocode-client");
+  url.search = new URLSearchParams({
+    latitude: String(location.latitude),
+    longitude: String(location.longitude),
+    localityLanguage: lang
+  });
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return;
+    const place = await response.json();
+    const name = place.city || place.locality || place.principalSubdivision || place.countryName;
+    if (!name || location !== currentLocation) return;
+    const detail = [place.locality !== name ? place.locality : null, place.principalSubdivision, place.countryName]
+      .filter((part) => part && part !== name)
+      .join(", ");
+    currentLocation.name = name;
+    currentLocation.detail = detail || null;
+    currentLocation.countryCode = place.countryCode ?? null;
+    settings.lastLocation = currentLocation;
+    persistSettings();
+    if (latestWeather) renderHeading();
+    renderGpsFix();
+  } catch {
+    // Offline or blocked: the coordinates already label the place.
+  }
+}
+
+// Lives inside the folded-out location panel: what was measured, how precisely
+// and when, so a stale fix is visible instead of implied.
+function renderGpsFix() {
+  const panel = elements["gps-fix"];
+  elements["bigdatacloud-credit"].hidden = currentLocation.source !== "gps";
+  if (currentLocation.source !== "gps") {
+    panel.hidden = true;
+    return;
+  }
+
+  const rows = [[t("gps.place"), locationLabel(currentLocation)], [t("gps.coordinates"), coordinateLabel(currentLocation)]];
+  if (Number.isFinite(toFiniteNumber(currentLocation.accuracyM))) {
+    rows.push([t("gps.accuracyLabel"), formatAccuracy(currentLocation.accuracyM)]);
+  }
+  if (Number.isFinite(toFiniteNumber(currentLocation.fixedAt))) {
+    const age = Date.now() - Number(currentLocation.fixedAt);
+    rows.push([
+      t("gps.fixedAt"),
+      age < 90_000 ? t("gps.fixedJustNow") : formatClockOrDate(Number(currentLocation.fixedAt))
+    ]);
+  }
+  renderDefinitionList(elements["gps-fix-values"], rows);
+  panel.hidden = false;
+}
+
+function formatClockOrDate(epoch) {
+  if (Date.now() - epoch < 12 * 3_600_000) return formatTime(epoch);
+  return `${formatCalendarDate(epoch)}, ${formatTime(epoch)}`;
 }
 
 async function loadWeather(location, { moveFocus = false, refresh = false } = {}) {
@@ -457,6 +599,7 @@ async function loadWeather(location, { moveFocus = false, refresh = false } = {}
     elements["refresh-button"].disabled = false;
     announce(`${t("status.loaded", { name: location.name })} ${elements["decision-summary"].textContent}`);
     if (activeViewTab === "tab-deep") void ensureAnalysisLoaded({ force: refresh });
+    if (activeViewTab === "tab-forecast") void ensureQuarterLoaded();
     if (moveFocus) {
       elements["location-picker"].open = false;
       elements["weather-location-heading"].focus();
@@ -493,6 +636,135 @@ async function fetchOpenMeteo(location, signal) {
   const response = await fetch(url, { signal });
   if (!response.ok) throw new Error(`Forecast returned ${response.status}.`);
   return response.json();
+}
+
+// Open-Meteo only publishes genuine 15-minute steps from convection-resolving
+// models; anywhere else its minutely_15 block is hourly data interpolated, so
+// we ask these models by name and show nothing when none of them answers.
+const QUARTER_MODELS = [
+  { id: "icon_d2", label: "DWD ICON-D2" },
+  { id: "arome_france_hd", label: "Météo-France AROME HD" },
+  { id: "ncep_hrrr_conus", label: "NOAA HRRR" }
+];
+const QUARTER_FIELDS = ["temperature_2m", "apparent_temperature", "precipitation", "weather_code", "wind_speed_10m", "wind_gusts_10m"];
+
+async function fetchQuarterHourly(location, signal) {
+  const url = new URL("https://api.open-meteo.com/v1/forecast");
+  url.search = new URLSearchParams({
+    latitude: String(location.latitude),
+    longitude: String(location.longitude),
+    minutely_15: QUARTER_FIELDS.join(","),
+    models: QUARTER_MODELS.map((model) => model.id).join(","),
+    timezone: "auto",
+    forecast_minutely_15: "24"
+  });
+  const response = await fetch(url, { signal });
+  const data = await response.json().catch(() => null);
+  // Outside every high-resolution domain the API answers with an error body.
+  if (!response.ok || !data || data.error || !data.minutely_15) return null;
+  return pickQuarterModel(data);
+}
+
+function pickQuarterModel(data) {
+  const block = data.minutely_15;
+  for (const model of QUARTER_MODELS) {
+    const suffixed = QUARTER_FIELDS.every((field) => `${field}_${model.id}` in block);
+    if (!suffixed) continue;
+    const series = readQuarterSeries(block, `_${model.id}`);
+    if (series) return { label: model.label, offset: data.utc_offset_seconds, ...series };
+  }
+  // A single matching model comes back without the model suffix.
+  const series = readQuarterSeries(block, "");
+  if (!series) return null;
+  return { label: null, offset: data.utc_offset_seconds, ...series };
+}
+
+function readQuarterSeries(block, suffix) {
+  const temperatures = block[`temperature_2m${suffix}`];
+  if (!Array.isArray(temperatures) || !temperatures.some((value) => Number.isFinite(toFiniteNumber(value)))) return null;
+  const series = { time: block.time };
+  for (const field of QUARTER_FIELDS) series[field] = block[`${field}${suffix}`] ?? [];
+  return { series };
+}
+
+async function ensureQuarterLoaded() {
+  if (!latestWeather) return;
+  const locationKey = analysisLocationKey(currentLocation);
+  const fresh = latestQuarter
+    && latestQuarter.locationKey === locationKey
+    && Date.now() - latestQuarter.loadedAt < QUARTER_STALE_AFTER_MS;
+  if (fresh) {
+    renderQuarter();
+    return;
+  }
+
+  quarterRequestController?.abort();
+  quarterRequestController = new AbortController();
+  try {
+    const data = await fetchQuarterHourly(currentLocation, quarterRequestController.signal);
+    latestQuarter = { locationKey, loadedAt: Date.now(), data };
+    renderQuarter();
+  } catch (error) {
+    if (error.name !== "AbortError") latestQuarter = { locationKey, loadedAt: Date.now(), data: null };
+    renderQuarter();
+  }
+}
+
+function renderQuarter() {
+  const details = elements["quarter-details"];
+  const rows = quarterRows();
+  if (!rows.length) {
+    details.hidden = true;
+    details.open = false;
+    return;
+  }
+
+  details.hidden = false;
+  elements["quarter-source"].textContent = latestQuarter.data.label
+    ? t("quarter.source", { model: latestQuarter.data.label })
+    : t("quarter.sourceGeneric");
+  elements["quarter-list"].replaceChildren();
+  for (const row of rows) {
+    const item = document.createElement("li");
+    const headline = t("quarter.headline", {
+      time: formatTime(row.epoch),
+      conditions: localizedWeatherLabel(lang, row.weatherCode)
+    });
+    const meta = t(row.rainMm < 0.05 ? "quarter.metaDry" : "quarter.meta", {
+      temp: formatTemperature(row.temperature),
+      amount: formatPrecipitation(row.rainMm),
+      wind: formatSpeed(row.wind),
+      gusts: formatSpeed(row.gusts)
+    });
+    appendForecastItem(item, row.weatherCode, row.isDay, headline, meta, null);
+    elements["quarter-list"].append(item);
+  }
+}
+
+function quarterRows() {
+  const data = latestQuarter?.data;
+  if (!data?.series?.time || !latestWeather) return [];
+  if (latestQuarter.locationKey !== analysisLocationKey(currentLocation)) return [];
+  const { series, offset } = data;
+  const dayByHour = new Map(latestWeather.hourly.time.map((time, index) => [String(time).slice(0, 13), latestWeather.hourly.is_day?.[index]]));
+  const now = Date.now() - 5 * 60_000;
+  const rows = [];
+  for (let index = 0; index < series.time.length && rows.length < 12; index += 1) {
+    const epoch = localIsoToEpoch(series.time[index], offset);
+    if (epoch < now) continue;
+    const temperature = toFiniteNumber(series.temperature_2m?.[index]);
+    if (!Number.isFinite(temperature)) continue;
+    rows.push({
+      epoch,
+      temperature,
+      rainMm: Number(series.precipitation?.[index] ?? 0),
+      weatherCode: series.weather_code?.[index],
+      wind: series.wind_speed_10m?.[index],
+      gusts: series.wind_gusts_10m?.[index],
+      isDay: Number(dayByHour.get(String(series.time[index]).slice(0, 13)) ?? 1) !== 0
+    });
+  }
+  return rows;
 }
 
 async function fetchAirQuality(location, signal) {
@@ -784,6 +1056,7 @@ function renderAll() {
   renderDecisionSummary();
   renderCurrentConditions();
   renderRain();
+  renderQuarter();
   renderHourly();
   renderDaily();
   renderAirQuality();
@@ -796,6 +1069,7 @@ function renderHeading() {
   elements["weather-location-heading"].textContent = currentLocation.name;
   elements["location-current-name"].textContent = currentLocation.name;
   renderActionLabels();
+  renderGpsFix();
   elements["location-context"].textContent = currentLocation.detail || coordinateLabel(currentLocation);
   const currentEpoch = localIsoToEpoch(latestWeather.current.time, latestWeather.utc_offset_seconds);
   elements["weather-age"].textContent = t("modelTime", { time: formatTime(currentEpoch) });
@@ -823,7 +1097,8 @@ function renderDecisionSummary() {
     ? t("summary.measured", { measured: formatTemperature(measuredTemperature), feels: formatTemperature(current.apparent_temperature) })
     : t("summary.estimated", { temp: formatTemperature(current.temperature_2m), feels: formatTemperature(current.apparent_temperature) });
   elements["decision-summary"].textContent = `${temperatureSummary} ${rain.headline}`;
-  elements["summary-caveat"].textContent = `${localizedWeatherLabel(lang, current.weather_code)}. ${rain.detail}`;
+  // Rain timing belongs to the rain section; the hero only names the sky.
+  elements["summary-caveat"].textContent = `${localizedWeatherLabel(lang, current.weather_code)}.`;
   renderYesterdayComparison();
   renderSunSummary();
 }
@@ -922,8 +1197,13 @@ function renderCurrentConditions() {
 
 function renderRain() {
   const isRadar = latestRain.source === "radar";
-  const summary = formatRainSummary(lang, summarizeRain(latestRain.points, { nowEpoch: Date.now() }), formatTime, latestRain.source);
-  elements["rain-summary"].textContent = `${summary.headline} ${summary.detail}`;
+  const decision = summarizeRain(latestRain.points, { nowEpoch: Date.now() });
+  const summary = formatRainSummary(lang, decision, formatTime, latestRain.source);
+  // The hero already carries the headline, so this section only adds timing
+  // detail, and says nothing at all when there is no rain to time.
+  const hasTiming = decision.kind === "raining" || decision.kind === "upcoming";
+  elements["rain-summary"].textContent = hasTiming ? summary.detail : "";
+  elements["rain-summary"].hidden = !hasTiming;
   elements["rain-source-badge"].textContent = t(isRadar ? "rain.badge.radar" : "rain.badge.model");
   elements["rain-detail-intro"].textContent = t(isRadar ? "rain.intro.radar" : "rain.intro.model");
   elements["buienradar-credit"].hidden = latestRain.provider !== "buienradar";
@@ -976,7 +1256,15 @@ function renderHourly() {
       time: formatTime(epoch),
       conditions: localizedWeatherLabel(lang, hourly.weather_code[index])
     });
-    const meta = t(rainMm < 0.05 ? "hourly.metaNoAmount" : "hourly.meta", {
+    // "Feels like" only earns its words when it differs from the reading.
+    const temperature = toFiniteNumber(hourly.temperature_2m[index]);
+    const apparent = toFiniteNumber(hourly.apparent_temperature[index]);
+    const notable = Number.isFinite(temperature) && Number.isFinite(apparent) && Math.abs(apparent - temperature) >= 1.5;
+    const wet = rainMm >= 0.05;
+    const metaKey = notable
+      ? (wet ? "hourly.meta" : "hourly.metaNoAmount")
+      : (wet ? "hourly.metaPlain" : "hourly.metaPlainNoAmount");
+    const meta = t(metaKey, {
       temp: formatTemperature(hourly.temperature_2m[index]),
       feels: formatTemperature(hourly.apparent_temperature[index]),
       chance: formatNumber(chancePercent, 0),
@@ -1035,10 +1323,15 @@ function renderDaily() {
   elements["daily-more-button"].textContent = t(dailyExpanded ? "daily.showFewer" : "daily.showMore", { count: remaining });
 }
 
+// Screen readers should land on a forecast row once and hear the whole line.
+// The visual layer (icon, chance chip, two text rows) is hidden from them and
+// replaced by a single label on the list item.
 function appendForecastItem(item, code, isDay, headline, meta, chancePercent) {
+  item.setAttribute("aria-label", `${headline} ${meta}`);
   item.append(iconElement(document, code, isDay));
   const text = document.createElement("span");
   text.className = "forecast-text";
+  text.setAttribute("aria-hidden", "true");
 
   const topRow = document.createElement("span");
   topRow.className = "forecast-top-row";
@@ -1046,7 +1339,7 @@ function appendForecastItem(item, code, isDay, headline, meta, chancePercent) {
   headlineEl.className = "forecast-headline";
   headlineEl.textContent = headline;
   topRow.append(headlineEl);
-  const chip = rainChanceChip(chancePercent);
+  const chip = Number.isFinite(chancePercent) ? rainChanceChip(chancePercent) : null;
   if (chip) topRow.append(chip);
 
   const metaEl = document.createElement("span");
@@ -1419,7 +1712,9 @@ function toggleSavedLocation() {
     saved.splice(existingIndex, 1);
     announce(t("status.removed", { name: currentLocation.name }));
   } else {
-    saved.push(currentLocation);
+    // A saved place is a pin, not a live fix: drop the GPS bookkeeping so
+    // picking it again never re-points the app at wherever you are now.
+    saved.push(pinnedLocation(currentLocation));
     if (saved.length > 8) saved.shift();
     announce(t("status.saved", { name: currentLocation.name }));
   }
@@ -1759,6 +2054,19 @@ function formatDistance(km) {
   return `${formatNumber(km, km < 10 ? 1 : 0)} km`;
 }
 
+// GPS accuracy is a radius of a few metres to a few hundred, so metres are the
+// only unit that says anything useful.
+function formatAccuracy(meters) {
+  const value = Number(meters);
+  if (settings.precipitationUnit === "inch") {
+    const feet = value * 3.28084;
+    if (feet < 1000) return `${formatNumber(feet, 0)} ft`;
+    return `${formatNumber(feet / 5280, 1)} mi`;
+  }
+  if (value < 1000) return `${formatNumber(value, 0)} m`;
+  return `${formatNumber(value / 1000, 1)} km`;
+}
+
 function formatHeight(meters) {
   if (settings.precipitationUnit === "inch") {
     return `${formatNumber(meters * 3.28084, 0)} ft`;
@@ -1808,6 +2116,17 @@ function formatCalendarDate(epoch) {
 function formatOptional(value, formatter) {
   if (!Number.isFinite(toFiniteNumber(value))) return t("value.notReported");
   return formatter(Number(value));
+}
+
+function pinnedLocation(location) {
+  return {
+    name: location.name,
+    detail: location.detail ?? null,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    timezone: location.timezone ?? null,
+    countryCode: location.countryCode ?? null
+  };
 }
 
 function locationLabel(location) {

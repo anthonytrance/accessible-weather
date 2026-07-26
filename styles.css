@@ -517,7 +517,21 @@ summary {
   list-style: none;
 }
 
+/* Off-screen but still real text, so screen readers read a row as one item. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 .forecast-point-list li {
+  position: relative;
   padding: 0.85rem 0.95rem;
   border: 1px solid var(--border);
   border-left: 0.3rem solid var(--accent);

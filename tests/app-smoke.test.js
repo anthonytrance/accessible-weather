@@ -44,14 +44,18 @@ test("the app loads Mechelen weather and renders its decision-first interface", 
     assert.equal(hourlyItems.length, 12);
     assert.equal(hourlyItems[0].querySelectorAll(".wx-icon-holder").length, 1);
     assert.match(hourlyItems[0].textContent, /25\.0°C/);
-    // One screen-reader stop per row: the row carries the whole sentence and
-    // every visual part inside it is hidden from assistive technology.
-    assert.match(hourlyItems[0].getAttribute("aria-label"), /25\.0°C/);
+    // One screen-reader stop per row, and it has to be real text: a list item
+    // whose only name is an aria-label and whose content is hidden gets
+    // skipped entirely by VoiceOver.
+    const spokenRow = (item) => item.querySelector(".visually-hidden")?.textContent ?? "";
+    assert.equal(hourlyItems[0].hasAttribute("aria-label"), false);
+    assert.match(spokenRow(hourlyItems[0]), /25\.0°C/);
     assert.equal(hourlyItems[0].querySelector(".forecast-text").getAttribute("aria-hidden"), "true");
     assert.equal(hourlyItems[0].querySelector(".wx-icon-holder").getAttribute("aria-hidden"), "true");
+    assert.equal(hourlyItems[0].querySelector(".visually-hidden").hasAttribute("aria-hidden"), false);
     // "Feels like" is dropped when it matches the temperature closely.
-    assert.doesNotMatch(hourlyItems[0].getAttribute("aria-label"), /feels/);
-    assert.match(hourlyItems[1].getAttribute("aria-label"), /feels 23\.0°C/);
+    assert.doesNotMatch(spokenRow(hourlyItems[0]), /feels/);
+    assert.match(spokenRow(hourlyItems[1]), /feels 23\.0°C/);
     assert.equal(document.querySelectorAll("#daily-list li").length, 7);
     assert.match(document.querySelector("#daily-list li").textContent, /^Today\./);
     assert.equal(document.getElementById("daily-more-button").hidden, false);
@@ -81,7 +85,22 @@ test("the app loads Mechelen weather and renders its decision-first interface", 
     const quarterItems = document.querySelectorAll("#quarter-list li");
     assert.equal(quarterItems.length, 12);
     assert.match(document.getElementById("quarter-source").textContent, /ICON-D2/);
-    assert.match(quarterItems[0].getAttribute("aria-label"), /no rain/);
+    assert.match(quarterItems[0].querySelector(".visually-hidden").textContent, /no rain/);
+
+    // Opening the disclosure must not cancel a load and collapse itself.
+    const quarterDetails = document.getElementById("quarter-details");
+    quarterDetails.open = true;
+    quarterDetails.dispatchEvent(new dom.window.Event("toggle"));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(quarterDetails.open, true);
+    assert.equal(quarterDetails.hidden, false);
+    assert.equal(document.querySelectorAll("#quarter-list li").length, 12);
+
+    const dailyRows = document.querySelectorAll("#daily-list li");
+    assert.match(dailyRows[0].querySelector(".visually-hidden").textContent, /^Today\./);
+    // Sun times only on today and tomorrow.
+    assert.match(dailyRows[1].querySelector(".visually-hidden").textContent, /sunrise/);
+    assert.doesNotMatch(dailyRows[2].querySelector(".visually-hidden").textContent, /sunrise/);
 
     forecastTab.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
     assert.equal(document.getElementById("tab-now").getAttribute("aria-selected"), "true");

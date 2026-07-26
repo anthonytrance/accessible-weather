@@ -132,6 +132,14 @@ Text changes in the same pass:
 - The privacy note moved inside the collapsed sources disclosure; the notification intro sentence, the "Choose a location" heading and the pollen sentence's long form are gone.
 - Loads only announce the wait when the place actually changes, so a refresh no longer says everything twice.
 
+## Forecast regression fix, 2026-07-27 (version 2026-07-27.3)
+
+Anthony reported the forecast "completely broken": no daily outlook, and the 15-minute disclosure showing nothing and not opening. The DOM was fine (7 daily rows, 12 hourly, 12 quarter, no exception), so this was self-inflicted accessibility damage from the "one element per row" change.
+
+- **Never name a forecast row with `aria-label` alone.** The rows carried `aria-label` with every child `aria-hidden`, which leaves a `listitem` with a name Safari ignores and no content at all, so VoiceOver skipped the rows entirely. Rows now carry a real off-screen `<span class="visually-hidden">` sentence instead, which works on VoiceOver and NVDA alike. `aria-label` on non-interactive, non-landmark elements is unreliable in WebKit, so do not reach for it again here.
+- Opening the disclosure while the Forecast tab's own quarter-hour request was still running aborted that request, and the aborted branch re-rendered, hid the panel and forced `open` back to false, pulling the panel out from under the user. `ensureQuarterLoaded()` now refuses to start a second request for the same location, the abort branch no longer re-renders, and `renderQuarter()` never touches `open`.
+- Tests assert the spoken text of hourly, quarter and daily rows, that no row has an `aria-label`, and that toggling the disclosure mid-load leaves it open and populated.
+
 ## Status
 
 All completed passes above are live at accessible-weather.pitch-363.workers.dev. VAPID secrets are set on the Worker (regenerated once because a PowerShell pipe BOM'd the first pair; always pipe secrets from a POSIX shell). Push was exercised on Anthony's phone; the follow-up fixed the one-hour briefing-label shift. The current suite is 32/32 green.

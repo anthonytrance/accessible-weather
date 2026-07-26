@@ -38,7 +38,7 @@ import {
 const STORAGE_KEY = "weather-clearly.v1";
 // Shown in the collapsed sources panel so "did the update arrive?" is a fact
 // you can read out rather than a guess.
-const APP_VERSION = "2026-07-27.2";
+const APP_VERSION = "2026-07-27.3";
 const DEFAULT_LOCATION = {
   name: "Mechelen",
   detail: "Flanders, Belgium",
@@ -109,6 +109,7 @@ let lastLoadedKey = null;
 let gpsRefreshInFlight = false;
 let latestQuarter = null;
 let quarterRequestController = null;
+let quarterLoadingKey = null;
 const STALE_AFTER_MS = 5 * 60_000;
 const ANALYSIS_STALE_AFTER_MS = 30 * 60_000;
 const QUARTER_STALE_AFTER_MS = 10 * 60_000;
@@ -719,16 +720,24 @@ async function ensureQuarterLoaded() {
     renderQuarter();
     return;
   }
+  // Opening the disclosure while the tab's own request is still running must
+  // not cancel it: the aborted render would pull the panel out from under you.
+  if (quarterLoadingKey === locationKey) return;
 
   quarterRequestController?.abort();
   quarterRequestController = new AbortController();
+  quarterLoadingKey = locationKey;
   try {
     const data = await fetchQuarterHourly(currentLocation, quarterRequestController.signal);
     latestQuarter = { locationKey, loadedAt: Date.now(), data };
     renderQuarter();
   } catch (error) {
-    if (error.name !== "AbortError") latestQuarter = { locationKey, loadedAt: Date.now(), data: null };
-    renderQuarter();
+    if (error.name !== "AbortError") {
+      latestQuarter = { locationKey, loadedAt: Date.now(), data: null };
+      renderQuarter();
+    }
+  } finally {
+    if (quarterLoadingKey === locationKey) quarterLoadingKey = null;
   }
 }
 
@@ -736,8 +745,9 @@ function renderQuarter() {
   const details = elements["quarter-details"];
   const rows = quarterRows();
   if (!rows.length) {
+    // Leave `open` alone: if the data comes back it should reappear the way
+    // you left it, not silently collapsed.
     details.hidden = true;
-    details.open = false;
     return;
   }
 
@@ -1356,9 +1366,9 @@ function renderDaily() {
 
 // Screen readers should land on a forecast row once and hear the whole line.
 // The visual layer (icon, chance chip, two text rows) is hidden from them and
-// replaced by a single label on the list item.
+// replaced by one off-screen sentence. It has to be real text: VoiceOver skips
+// a list item whose only name is an attribute and whose content is hidden.
 function appendForecastItem(item, code, isDay, headline, meta, chancePercent) {
-  item.setAttribute("aria-label", `${headline} ${meta}`);
   item.append(iconElement(document, code, isDay));
   const text = document.createElement("span");
   text.className = "forecast-text";
@@ -1378,7 +1388,11 @@ function appendForecastItem(item, code, isDay, headline, meta, chancePercent) {
   metaEl.textContent = meta;
 
   text.append(topRow, metaEl);
-  item.append(text);
+
+  const spoken = document.createElement("span");
+  spoken.className = "visually-hidden";
+  spoken.textContent = `${headline} ${meta}`;
+  item.append(text, spoken);
 }
 
 function isTomorrow(date, today) {
